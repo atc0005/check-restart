@@ -42,6 +42,7 @@ var (
 	_ restart.RebootRequiredAsserterWithDataDisplay = (*KeyPair)(nil)
 )
 
+// ErrUnsupportedOS indicates that an unsupported OS has been detected.
 var ErrUnsupportedOS = errors.New("unsupported OS detected; this package requires a Windows OS to run properly")
 
 // ErrInvalidNumberOfKeysInKeyPair indicates that either too few or too many
@@ -63,8 +64,13 @@ var ErrMissingRequiredKey = errors.New("missing required key")
 // key is missing.
 var ErrMissingOptionalKey = errors.New("missing optional key")
 
+// ErrKeyAlreadyOpen indicates that a specified registry key is already open.
+// This error indicates that there is likely a logic bug somewhere in the
+// caller's code.
 var ErrKeyAlreadyOpen = errors.New("registry key is already open")
 
+// ErrKeyNotOpen indicates that a registry key is not open. This error
+// indicates that there is likely a logic bug somewhere in the caller's code.
 var ErrKeyNotOpen = errors.New("registry key is not open")
 
 // Registry value types.
@@ -85,6 +91,7 @@ const (
 	RegKeyTypeUnknown                  = "UNKNOWN" // fallback value
 )
 
+// Registry "root" key names.
 const (
 	RegKeyRootNameClassesRoot     = "HKEY_CLASSES_ROOT"
 	RegKeyRootNameCurrentUser     = "HKEY_CURRENT_USER"
@@ -92,15 +99,22 @@ const (
 	RegKeyRootNameUsers           = "HKEY_USERS"
 	RegKeyRootNameCurrentConfig   = "HKEY_CURRENT_CONFIG"
 	RegKeyRootNamePerformanceData = "HKEY_PERFORMANCE_DATA"
-	RegKeyRootNameUnknown         = "UNKNOWN" //fallback value
+	RegKeyRootNameUnknown         = "UNKNOWN" // fallback value
 )
 
-// RegistryKeyRebootRequired represents the behavior of a registry key that
-// can be evaluated to indicate whether a reboot is required.
+// Key requirement labels used by logging and error messages to provide
+// additional context to messages.
+const (
+	KeyReqOptionalLabel = "optional"
+	KeyReqRequiredLabel = "required"
+)
+
+// KeyRebootRequired represents the behavior of a registry key that can be
+// evaluated to indicate whether a reboot is required.
 //
 // NOTE: As of the v0.1.0 release this interface is not used, though a prior
 // version of the client code did use this. Keeping around for the time being.
-type RegistryKeyRebootRequired interface {
+type KeyRebootRequired interface {
 	Validate() error
 	Evidence() KeyRebootEvidence
 	Requirements() KeyAssertions
@@ -129,7 +143,7 @@ type KeyPairRebootEvidence struct {
 
 // KeyStringsRebootEvidence applies additional evidence "markers" for the
 // KeyStrings type. If the reboot evidence markers for the Key type are not
-// matched, this (also optional) set of evidence markers are then checked to
+// matched, these  (also optional) set of evidence markers are then checked to
 // determine if a reboot is required.
 type KeyStringsRebootEvidence struct {
 
@@ -200,10 +214,11 @@ type Key struct {
 	requirements KeyAssertions
 }
 
+// Keys is a collection of Key values.
 type Keys []Key
 
-// TODO: Am I using this?
-type RegistryKeysRebootRequired []RegistryKeyRebootRequired
+// KeysRebootRequired is a collection of KeysRebootRequired values.
+type KeysRebootRequired []KeyRebootRequired
 
 // KeyPair represents two Keys that are evaluated together.
 type KeyPair struct {
@@ -272,6 +287,8 @@ type KeyStrings struct {
 	additionalEvidence KeyStringsRebootEvidence
 }
 
+// Evidence returns the specified evidence that is required in order to
+// determine that a reboot is needed.
 func (k Key) Evidence() KeyRebootEvidence {
 	return k.evidence
 }
@@ -300,14 +317,17 @@ func (k Key) Requirements() KeyAssertions {
 	return k.requirements
 }
 
+// Path returns the specified registry key path.
 func (k Key) Path() string {
 	return k.path
 }
 
+// RootKey returns the specified registry root key.
 func (k Key) RootKey() registry.Key {
 	return k.root
 }
 
+// Value returns the specified registry key value.
 func (k Key) Value() string {
 	return k.value
 }
@@ -353,9 +373,9 @@ func (k *Key) open() error {
 		return ErrMissingOptionalKey
 
 	case err != nil:
-		keyReqLabel := "optional"
+		keyReqLabel := KeyReqOptionalLabel
 		if k.Requirements().KeyRequired {
-			keyReqLabel = "required"
+			keyReqLabel = KeyReqRequiredLabel
 		}
 
 		logger.Printf(
@@ -409,6 +429,8 @@ func (k *Key) close() error {
 
 }
 
+// Validate performs basic validation. An error is returned for any validation
+// failures.
 func (k Key) Validate() error {
 
 	switch getRootKeyName(k.root) {
@@ -576,9 +598,9 @@ func (k *Key) evalOpenKey() restart.RebootCheckResult {
 		}
 
 	case err != nil:
-		keyReqLabel := "optional"
+		keyReqLabel := KeyReqOptionalLabel
 		if k.Requirements().KeyRequired {
-			keyReqLabel = "required"
+			keyReqLabel = KeyReqRequiredLabel
 		}
 
 		logger.Printf(
@@ -732,9 +754,9 @@ func (k *Key) evalValue() restart.RebootCheckResult {
 			}
 
 		case err != nil:
-			valReqLabel := "optional"
+			valReqLabel := KeyReqOptionalLabel
 			if k.Requirements().ValueRequired {
-				valReqLabel = "required"
+				valReqLabel = KeyReqRequiredLabel
 			}
 
 			logger.Printf(
@@ -786,12 +808,14 @@ func (k *Key) evalValue() restart.RebootCheckResult {
 
 }
 
-// evaluate performs the minimum number of assertions to determine whether a
+// Evaluate performs the minimum number of assertions to determine whether a
 // reboot is needed. If an error is encountered further checks are skipped.
 func (k Key) Evaluate() restart.RebootCheckResult {
 	return k.evaluate(true)
 }
 
+// Validate performs basic validation of all items in the collection. An error
+// is returned for any validation failures.
 func (k Keys) Validate() error {
 	for _, k := range k {
 		if err := k.Validate(); err != nil {
@@ -802,8 +826,10 @@ func (k Keys) Validate() error {
 	return nil
 }
 
-func (rkrr RegistryKeysRebootRequired) Validate() error {
-	for _, k := range rkrr {
+// Validate performs basic validation for all items in the collection. An
+// error is returned for any validation failures.
+func (krr KeysRebootRequired) Validate() error {
+	for _, k := range krr {
 		if err := k.Validate(); err != nil {
 			return err
 		}
@@ -830,6 +856,8 @@ func (kb KeyBinary) DataDisplay() string {
 	return fmt.Sprintf("%v", kb.Data())
 }
 
+// Evaluate performs the minimum number of assertions to determine whether a
+// reboot is needed. If an error is encountered further checks are skipped.
 func (kb KeyBinary) Evaluate() restart.RebootCheckResult {
 
 	// Evaluate embedded "base" Key first where we check shared requirements
@@ -879,9 +907,9 @@ func (kb KeyBinary) Evaluate() restart.RebootCheckResult {
 
 		case err != nil:
 
-			valReqLabel := "optional"
+			valReqLabel := KeyReqOptionalLabel
 			if kb.Requirements().ValueRequired {
-				valReqLabel = "required"
+				valReqLabel = KeyReqRequiredLabel
 			}
 
 			logger.Printf(
@@ -1017,9 +1045,9 @@ func (ki KeyInt) Evaluate() restart.RebootCheckResult {
 
 		case err != nil:
 
-			valReqLabel := "optional"
+			valReqLabel := KeyReqOptionalLabel
 			if ki.Requirements().ValueRequired {
-				valReqLabel = "required"
+				valReqLabel = KeyReqRequiredLabel
 			}
 
 			logger.Printf(
@@ -1103,6 +1131,8 @@ func (ks KeyString) DataDisplay() string {
 	return fmt.Sprintf("%v", ks.Data())
 }
 
+// Evaluate performs the minimum number of assertions to determine whether a
+// reboot is needed. If an error is encountered further checks are skipped.
 func (ks KeyString) Evaluate() restart.RebootCheckResult {
 
 	// Evaluate embedded "base" Key first where we check shared requirements
@@ -1152,9 +1182,9 @@ func (ks KeyString) Evaluate() restart.RebootCheckResult {
 
 		case err != nil:
 
-			valReqLabel := "optional"
+			valReqLabel := KeyReqOptionalLabel
 			if ks.Requirements().ValueRequired {
-				valReqLabel = "required"
+				valReqLabel = KeyReqRequiredLabel
 			}
 
 			logger.Printf(
@@ -1238,6 +1268,10 @@ func (ks KeyStrings) DataDisplay() string {
 	return strings.Join(ks.Data(), ", ")
 }
 
+// AdditionalEvidence indicates what additional evidence "markers" have been
+// supplied. If the reboot evidence markers for the Key type are not matched,
+// these  (also optional) set of evidence markers are then checked to
+// determine if a reboot is required.
 func (ks KeyStrings) AdditionalEvidence() KeyStringsRebootEvidence {
 	return ks.additionalEvidence
 }
@@ -1295,9 +1329,9 @@ func (ks KeyStrings) Evaluate() restart.RebootCheckResult {
 
 		case err != nil:
 
-			valReqLabel := "optional"
+			valReqLabel := KeyReqOptionalLabel
 			if ks.Requirements().ValueRequired {
-				valReqLabel = "required"
+				valReqLabel = KeyReqRequiredLabel
 			}
 
 			logger.Printf(
@@ -1429,6 +1463,10 @@ func (kp KeyPair) DataDisplay() string {
 	)
 }
 
+// AdditionalEvidence indicates what additional evidence "markers" have been
+// supplied. If the reboot evidence markers for the Key type are not matched,
+// these  (also optional) set of evidence markers are then checked to
+// determine if a reboot is required.
 func (kp KeyPair) AdditionalEvidence() KeyPairRebootEvidence {
 	return kp.additionalEvidence
 }
@@ -1522,9 +1560,9 @@ func (kp KeyPair) Evaluate() restart.RebootCheckResult {
 
 			case err != nil:
 
-				valReqLabel := "optional"
+				valReqLabel := KeyReqOptionalLabel
 				if key.Requirements().ValueRequired {
-					valReqLabel = "required"
+					valReqLabel = KeyReqRequiredLabel
 				}
 
 				logger.Printf(
@@ -1642,6 +1680,8 @@ func (kp KeyPair) Evaluate() restart.RebootCheckResult {
 
 }
 
+// Validate performs basic validation. An error is returned for any validation
+// failures.
 func (kp KeyPair) Validate() error {
 
 	if len(kp.Keys) != 2 {

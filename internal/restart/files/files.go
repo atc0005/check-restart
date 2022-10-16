@@ -84,6 +84,8 @@ type File struct {
 	requirements FileAssertions
 }
 
+// Validate performs basic validation. An error is returned for any validation
+// failures.
 func (f File) Validate() error {
 
 	if f.path == "" {
@@ -97,6 +99,7 @@ func (f File) Validate() error {
 
 }
 
+// Path returns the specified path to the file.
 func (f File) Path() string {
 	return f.path
 }
@@ -130,6 +133,8 @@ func (f File) String() string {
 
 }
 
+// Evaluate applies the specified assertion to determine if a reboot is
+// necessary.
 func (f File) Evaluate() restart.RebootCheckResult {
 
 	logger.Printf("Given file: %s", f)
@@ -151,7 +156,7 @@ func (f File) Evaluate() restart.RebootCheckResult {
 			Examined:       f,
 			RebootRequired: false,
 			Err: fmt.Errorf(
-				"unexpected error occurred while opening file %s: %v",
+				"unexpected error occurred while opening file %s: %w",
 				filePath,
 				err,
 			),

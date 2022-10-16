@@ -28,11 +28,11 @@ var ErrUnknownRebootEvidence = errors.New("unknown RebootEvidence indicator")
 // was specified.
 var ErrInvalidRebootEvidence = errors.New("invalid RebootEvidence indicator")
 
-// ErrMissingRequiredAsserter indicates that a required item (e.g., registry
+// ErrMissingRequiredItem indicates that a required item (e.g., registry
 // key, file) was not found and is required to be present.
 var ErrMissingRequiredItem = errors.New("missing required reboot asserter")
 
-// ErrMissingOptionalAsserter indicates that an optional item (e.g., registry
+// ErrMissingOptionalItem indicates that an optional item (e.g., registry
 // key, file) was not found, though it is not required to be present.
 var ErrMissingOptionalItem = errors.New("missing optional reboot asserter")
 
@@ -97,6 +97,8 @@ type RebootRequiredAsserterWithDataDisplay interface {
 // requirements are matched) indicate the need for a reboot.
 type RebootRequiredAsserters []RebootRequiredAsserter
 
+// Validate performs basic validation of all items in the collection. An error
+// is returned for any validation failures.
 func (rras RebootRequiredAsserters) Validate() error {
 	logger.Printf("%d assertions to validate", len(rras))
 
@@ -253,7 +255,7 @@ func (rcr RebootCheckResults) ServiceState() nagios.ServiceState {
 	}
 }
 
-// HasCriticalState indicates whether any results in the collection have a
+// IsCriticalState indicates whether any results in the collection have a
 // CRITICAL state.
 func (rcr RebootCheckResults) IsCriticalState() bool {
 	switch {
