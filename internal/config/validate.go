@@ -26,8 +26,9 @@ func (c Config) validate(appType AppType) error {
 		supportedLogLevels := supportedLogLevels()
 		if !textutils.InList(c.LoggingLevel, supportedLogLevels, true) {
 			return fmt.Errorf(
-				"invalid logging level;"+
+				"%w: invalid logging level;"+
 					" got %v, expected one of %v",
+				ErrUnsupportedOption,
 				c.LoggingLevel,
 				supportedLogLevels,
 			)

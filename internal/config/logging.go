@@ -63,7 +63,11 @@ func setLoggingLevel(logLevel string) error {
 	case LogLevelTrace:
 		zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	default:
-		return fmt.Errorf("invalid option provided: %v", logLevel)
+		return fmt.Errorf(
+			"%w: invalid logging level provided: %v",
+			ErrUnsupportedOption,
+			logLevel,
+		)
 	}
 
 	// signal that a case was triggered as expected

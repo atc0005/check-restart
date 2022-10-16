@@ -15,6 +15,7 @@ import (
 
 // logger is a package logger that can be enabled from client code to allow
 // logging output from this package when desired/needed for troubleshooting
+// nolint:gochecknoglobals
 var logger *log.Logger
 
 func init() {

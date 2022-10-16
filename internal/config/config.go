@@ -24,6 +24,9 @@ var version = "x.y.z"
 // information.
 var ErrVersionRequested = errors.New("version information requested")
 
+// ErrUnsupportedOption indicates that an unsupported option was specified.
+var ErrUnsupportedOption = errors.New("unsupported option")
+
 // AppType represents the type of application that is being
 // configured/initialized. Not all application types will use the same
 // features and as a result will not accept the same flags. Unless noted
