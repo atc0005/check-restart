@@ -23,13 +23,17 @@ Go-based tooling used to detect whether a restart (service) or reboot (system) i
 - [Installation](#installation)
   - [From source](#from-source)
   - [Using release binaries](#using-release-binaries)
+  - [Deployment](#deployment)
 - [Configuration options](#configuration-options)
 - [Configuration](#configuration)
   - [Command-line arguments](#command-line-arguments)
     - [`check_reboot`](#check_reboot)
+  - [Logging output](#logging-output)
 - [Examples](#examples)
   - [`OK` result](#ok-result)
   - [`WARNING` result](#warning-result)
+    - [Without `verbose` flag and with logging enabled](#without-verbose-flag-and-with-logging-enabled)
+    - [Verbose output without logging](#verbose-output-without-logging)
   - [`CRITICAL` result](#critical-result)
 - [License](#license)
 - [References](#references)
@@ -116,40 +120,81 @@ been tested.
    - for CentOS Linux
      1. `sudo yum install make gcc`
 1. Build
-   - for current operating system
-     - `go build -mod=vendor ./cmd/check_reboot/`
-       - *forces build to use bundled dependencies in top-level `vendor`
-         folder*
-   - for Windows
-      - `make windows`
+   - manually, explicitly specifying target OS and architecture
+     - `GOOS=windows GOARCH=amd64 go build -mod=vendor ./cmd/check_reboot/`
+       - most likely this is what you want
+       - substitute `amd64` with the appropriate architecture if using
+         different hardware (e.g., `arm64`)
+   - using Makefile `windows` recipe
+     - `make windows`
+       - generates x86 and x64 binaries
+   - using Makefile `release-build` recipe
+     - `make release-build`
+       - generates the same release assets as provided by this project's
+         releases
 1. Locate generated binaries
    - if using `Makefile`
      - look in `/tmp/check-restart/release_assets/check_reboot/`
    - if using `go build`
      - look in `/tmp/check-restart/`
-1. Copy the applicable binaries to whatever systems needs to run them
-1. Deploy
-   - Place `check_reboot` in a location where it can be executed by the
-     monitoring agent (usually the same place as other Nagios plugins)
-   - Update the monitoring agent configuration configuration to create a new
-     command definition
-     - see [NSClient++ External scripts doc][nsclient-external-scripts] for
-       an example of configuring NSClient++ to execute the plugin
-   - Create a new Nagios "console" service check that requests the monitoring
-     agent to execute the plugin
+1. Copy the applicable binaries to whatever systems needs to run them so that
+   they can be deployed
 
 ### Using release binaries
 
 1. Download the [latest release][repo-url] binaries
-1. Deploy
-   - Place `check_reboot` in a location where it can be executed by the
-     monitoring agent (usually the same place as other Nagios plugins)
-   - Update the monitoring agent configuration configuration to create a new
-     command definition
-     - see [NSClient++ External scripts doc][nsclient-external-scripts] for
-       an example of configuring NSClient++ to execute the plugin
-   - Create a new Nagios "console" service check that requests the monitoring
-     agent to execute the plugin
+1. Copy the applicable binaries to whatever systems needs to run them so that
+   they can be deployed
+
+### Deployment
+
+1. Place `check_reboot` in a location where it can be executed by the
+   monitoring agent
+   - Usually the same place as other Nagios plugins
+   - For example, on a default Windows system with `NSClient++ x64` installed
+    the `check_reboot.exe` plugin would be deployed to `C:\Program
+    Files\NSClient++\scripts\custom\check_reboot.exe`
+1. Update the monitoring agent configuration configuration (on a system that
+   you wish to monitor for "needs reboot" condition) to create a new command
+   definition
+   - We will pretend that the DNS name for the system is `windows.example.com`
+
+   - ```ini
+     [/settings/external scripts/scripts]
+     ; check_reboot=scripts\\custom\\check_reboot.exe --verbose
+     ;
+     ; NOTE: stderr output is returned mixed in with stdout content. Disable logging to prevent this.
+     check_reboot=scripts\\custom\\check_reboot.exe --verbose --log-level disabled
+     ```
+
+   - see [NSClient++ External scripts doc][nsclient-external-scripts] for
+     additional details
+1. Restart the `nscp` service (label of `NSClient++ (x64)`)
+1. Create a new Nagios "console" command definition to allow requesting the
+   monitoring agent to run the plugin
+
+   - ```nagios
+     define command {
+         # $ARG1$ is an optional non-default port
+         command_name    wcheck_reboot
+         command_line    $USER1$/check_nrpe -H $HOSTADDRESS$ -p $ARG1$ -t 30 -c check_reboot
+     }
+     ```
+
+1. Create a new Nagios "console" service check that requests the monitoring
+   agent to execute the plugin
+
+   - ```nagios
+     define service {
+         host_name              windows.example.com
+         service_description    check reboot
+         use                    generic-service
+         check_command          wcheck_reboot!12345!!!!!!!
+         notification_period    24x7withMaintenanceWindow
+         contacts               atc0005
+         register               1
+     }
+     ```
 
 ## Configuration options
 
@@ -172,6 +217,16 @@ been tested.
 | `v`, `verbose`    | No       | `false` | No     | `v`, `verbose`                                                          | Toggles emission of detailed output. This level of output is disabled by default.                    |
 | `ll`, `log-level` | No       | `info`  | No     | `disabled`, `panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace` | Log message priority filter. Log messages with a lower level are ignored.                            |
 
+### Logging output
+
+Early testing using NSClient++ suggests that both `stderr` and `stdout` are
+mixed together and sent back to the Nagios console as one output stream.
+
+For best results, you will probably want to disable logging output
+(`--log-level disabled`) unless you know of a way to redirect `stderr`
+*away* from the output sent back to the Nagios console by default. If you do,
+please file a GitHub issue in this project sharing your findings.
+
 ## Examples
 
 ### `OK` result
@@ -181,6 +236,7 @@ No reboot needed.
 This output is emitted by the plugin when a reboot is not needed.
 
 ```console
+C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe" --verbose
 OK: Reboot not needed (applied 15 reboot assertions, 0 matched)
 
 
@@ -208,19 +264,62 @@ Regarding the output:
 
 This output is emitted by the plugin when a reboot is needed.
 
-The last line (beginning with a space and the `|` symbol) is the performance
-data metrics emitted by the plugin. Depending on your monitoring system, these
-metrics may be collected and exposed as graphs/charts.
-
-Without the `verbose` flag:
+#### Without `verbose` flag and with logging enabled
 
 ```console
+C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe"
+4:16AM ERR T:/github/check-restart/cmd/check_reboot/main.go:193 > Reboot assertions matched, reboot needed app_type=plugin logging_level=info num_reboot_assertions_applied=15 num_reboot_assertions_matched=5 version="check-restart x.y.z (https://github.com/atc0005/check-restart)"
+WARNING: Reboot needed (applied 15 reboot assertions, 5 matched)
+
+**ERRORS**
+
+* reboot assertions matched, reboot needed
+
+**DETAILED INFO**
+
+
+Summary:
+
+  - 15 total reboot assertions applied
+  - 5 total reboot assertions matched
+
+--------------------------------------------------
+
+Reboot required because:
+
+
+  - Value PendingFileRenameOperations of type MULTI_SZ for key HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager found
+
+  - Key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired found
+
+  - Key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending found
+
+  - Key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending found
+
+  - File C:\Windows\WinSxS\pending.xml found
+
+
+ | 'assertions_matched'=5;;;; 'errors'=0;;;; 'time'=4ms;;;; 'all_assertions'=15;;;; 'file_assertions'=1;;;; 'registry_assertions'=14;;;;
 ```
 
-Verbose output:
+Regarding the output:
+
+- The last line beginning with a space and the `|` symbol are performance
+  data metrics emitted by the plugin. Depending on your monitoring system, these
+  metrics may be collected and exposed as graphs/charts.
+- The first line is emitted to `stderr`. Where the other output is intended
+  for use by Nagios to collect and display (via web UI or notifications), this
+  output is intended for humans to directly read when troubleshooting plugin
+  execution. If desired, this output can be muted by way of the `disabled`
+  option for the `log-level` flag. See [Logging output](#logging-output) for
+  additional details.
+- This output was captured on a Windows Server 2022 system, but is comparable
+  to the output emitted by other Windows desktop & server systems.
+
+#### Verbose output without logging
 
 ```console
-4:16AM ERR T:/github/check-restart/cmd/check_reboot/main.go:193 > Reboot assertions matched, reboot needed app_type=plugin logging_level=info num_reboot_assertions_applied=15 num_reboot_assertions_matched=5 version="check-restart x.y.z (https://github.com/atc0005/check-restart)"
+C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe" --verbose --log-level disabled
 WARNING: Reboot needed (applied 15 reboot assertions, 5 matched)
 
 **ERRORS**
@@ -264,7 +363,8 @@ Regarding the output:
   for use by Nagios to collect and display (via web UI or notifications), this
   output is intended for humans to directly read when troubleshooting plugin
   execution. If desired, this output can be muted by way of the `disabled`
-  option for the `log-level` flag.
+  option for the `log-level` flag. See [Logging output](#logging-output) for
+  additional details.
 - This output was captured on a Windows Server 2022 system, but is comparable
   to the output emitted by other Windows desktop & server systems.
 
