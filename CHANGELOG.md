@@ -26,6 +26,21 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.1.1] - 2022-10-18
+
+### Changed
+
+- Dependencies
+  - `golang.org/x/sys`
+    - `v0.0.0-20221013171732-95e765b1cc43` to `v0.1.0`
+- (GH-25) Update `release-build` Makefile recipe
+- (GH-27) Update README installation directions
+
+### Fixed
+
+- (GH-21) Issues with `config.supportedLogLevels()` helper function
+- (GH-24) Add missing section to CHANGELOG
+
 ## [v0.1.0] - 2022-10-17
 
 ### Added
@@ -36,5 +51,6 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-cert/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/atc0005/check-cert/compare/v0.1.1...HEAD
 [v0.1.0]: https://github.com/atc0005/check-cert/releases/tag/v0.1.0
+[v0.1.1]: https://github.com/atc0005/check-cert/releases/tag/v0.1.1
