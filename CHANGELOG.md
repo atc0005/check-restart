@@ -26,6 +26,25 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.1.2] - 2022-10-19
+
+### Overview
+
+- Dependency updates
+- built using Go 1.19.2
+  - Statically linked
+  - Windows (x64)
+
+### Changed
+
+- Dependencies
+  - `atc0005/go-nagios`
+    - `v0.10.1` to `v0.10.2`
+
+### Fixed
+
+- (GH-29) Add (retroactively) an `Overview` section to CHANGELOG entries
+
 ## [v0.1.1] - 2022-10-18
 
 ### Overview
@@ -66,6 +85,7 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-cert/compare/v0.1.1...HEAD
-[v0.1.0]: https://github.com/atc0005/check-cert/releases/tag/v0.1.0
+[Unreleased]: https://github.com/atc0005/check-cert/compare/v0.1.2...HEAD
+[v0.1.2]: https://github.com/atc0005/check-cert/releases/tag/v0.1.2
 [v0.1.1]: https://github.com/atc0005/check-cert/releases/tag/v0.1.1
+[v0.1.0]: https://github.com/atc0005/check-cert/releases/tag/v0.1.0
