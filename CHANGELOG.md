@@ -28,6 +28,14 @@ The following types of changes will be recorded in this file:
 
 ## [v0.1.1] - 2022-10-18
 
+### Overview
+
+- Bug fixes
+- Dependency updates
+- built using Go 1.19.2
+  - Statically linked
+  - Windows (x64)
+
 ### Changed
 
 - Dependencies
@@ -42,6 +50,13 @@ The following types of changes will be recorded in this file:
 - (GH-24) Add missing section to CHANGELOG
 
 ## [v0.1.0] - 2022-10-17
+
+### Overview
+
+- Initial release
+- built using Go 1.19.2
+  - Statically linked
+  - Windows (x86, x64)
 
 ### Added
 
