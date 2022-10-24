@@ -87,20 +87,27 @@ func DefaultRebootRequiredAssertions() restart.RebootRequiredAsserters {
 				KeyExists: true,
 			},
 		},
-		Key{
-			root: registry.LOCAL_MACHINE,
+		/*
+			Temporarily disable until support for excluding specific paths is
+			added due to issues with specific subkey. Tests applied to systems
+			confirmed to have need of a reboot show that sufficient other
+			assertions are matched to reliably indicate the need for a reboot.
 
-			// When a reboot is needed there are subkeys. Observed subkeys
-			// have a GUID naming pattern.
-			path: `SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending`,
-			evidence: KeyRebootEvidence{
-				SubKeysExist: true,
-			},
+			Key{
+				root: registry.LOCAL_MACHINE,
 
-			requirements: KeyAssertions{
-				KeyRequired: false,
+				// When a reboot is needed there are subkeys. Observed subkeys
+				// have a GUID naming pattern.
+				path: `SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending`,
+				evidence: KeyRebootEvidence{
+					SubKeysExist: true,
+				},
+
+				requirements: KeyAssertions{
+					KeyRequired: false,
+				},
 			},
-		},
+		*/
 		Key{
 			root: registry.LOCAL_MACHINE,
 			path: `SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting`,
