@@ -162,19 +162,19 @@ func main() {
 		// The `time` (runtime) metric is appended at plugin exit, so do not
 		// duplicate it here.
 		{
-			Label: "all_assertions",
+			Label: "evaluated_assertions",
 			Value: fmt.Sprintf("%d", len(allAssertions)),
 		},
 		{
-			Label: "file_assertions",
+			Label: "evaluated_file_assertions",
 			Value: fmt.Sprintf("%d", len(fileAssertions)),
 		},
 		{
-			Label: "registry_assertions",
+			Label: "evaluated_registry_assertions",
 			Value: fmt.Sprintf("%d", len(registryAssertions)),
 		},
 		{
-			Label: "assertions_matched",
+			Label: "matched_assertions",
 			Value: fmt.Sprintf("%d", results.RebootAssertionsMatched()),
 		},
 		{
