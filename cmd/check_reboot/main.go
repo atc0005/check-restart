@@ -187,7 +187,7 @@ func main() {
 	case !results.IsOKState():
 
 		if results.RebootRequired() {
-			log.Error().
+			log.Debug().
 				Int("num_reboot_assertions_applied", results.RebootAssertionsApplied()).
 				Int("num_reboot_assertions_matched", results.RebootAssertionsMatched()).
 				Msg("Reboot assertions matched, reboot needed")
