@@ -161,10 +161,10 @@ been tested.
 
    - ```ini
      [/settings/external scripts/scripts]
-     ; check_reboot=scripts\\custom\\check_reboot.exe --verbose
-     ;
      ; NOTE: stderr output is returned mixed in with stdout content. Disable logging to prevent this.
-     check_reboot=scripts\\custom\\check_reboot.exe --verbose --log-level disabled
+     ; check_reboot=scripts\\custom\\check_reboot.exe --verbose --log-level disabled
+     ;
+     check_reboot=scripts\\custom\\check_reboot.exe --verbose
      ```
 
    - see [NSClient++ External scripts doc][nsclient-external-scripts] for
@@ -222,10 +222,13 @@ been tested.
 Early testing using NSClient++ suggests that both `stderr` and `stdout` are
 mixed together and sent back to the Nagios console as one output stream.
 
-For best results, you will probably want to disable logging output
-(`--log-level disabled`) unless you know of a way to redirect `stderr`
-*away* from the output sent back to the Nagios console by default. If you do,
-please file a GitHub issue in this project sharing your findings.
+If this becomes a problem you can disable logging output (`--log-level
+disabled`) to prevent `stderr` from being including in the output sent back to
+the Nagios console.
+
+If you know of a way to prevent `stderr` from being mixed into the output sent
+back to Nagios, please file a GitHub issue in this project to share your
+findings.
 
 ## Examples
 
