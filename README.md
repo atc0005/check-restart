@@ -32,8 +32,8 @@ Go-based tooling used to detect whether a restart (service) or reboot (system) i
 - [Examples](#examples)
   - [`OK` result](#ok-result)
   - [`WARNING` result](#warning-result)
-    - [Without `verbose` flag and with logging enabled](#without-verbose-flag-and-with-logging-enabled)
-    - [Verbose output without logging](#verbose-output-without-logging)
+    - [Without `verbose` flag](#without-verbose-flag)
+    - [Verbose output](#verbose-output)
   - [`CRITICAL` result](#critical-result)
 - [License](#license)
 - [References](#references)
@@ -267,11 +267,10 @@ Regarding the output:
 
 This output is emitted by the plugin when a reboot is needed.
 
-#### Without `verbose` flag and with logging enabled
+#### Without `verbose` flag
 
 ```console
 C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe"
-4:16AM ERR T:/github/check-restart/cmd/check_reboot/main.go:193 > Reboot assertions matched, reboot needed app_type=plugin logging_level=info num_reboot_assertions_applied=15 num_reboot_assertions_matched=5 version="check-restart x.y.z (https://github.com/atc0005/check-restart)"
 WARNING: Reboot needed (applied 15 reboot assertions, 5 matched)
 
 **ERRORS**
@@ -310,19 +309,13 @@ Regarding the output:
 - The last line beginning with a space and the `|` symbol are performance
   data metrics emitted by the plugin. Depending on your monitoring system, these
   metrics may be collected and exposed as graphs/charts.
-- The first line is emitted to `stderr`. Where the other output is intended
-  for use by Nagios to collect and display (via web UI or notifications), this
-  output is intended for humans to directly read when troubleshooting plugin
-  execution. If desired, this output can be muted by way of the `disabled`
-  option for the `log-level` flag. See [Logging output](#logging-output) for
-  additional details.
 - This output was captured on a Windows Server 2022 system, but is comparable
   to the output emitted by other Windows desktop & server systems.
 
-#### Verbose output without logging
+#### Verbose output
 
 ```console
-C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe" --verbose --log-level disabled
+C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe" --verbose
 WARNING: Reboot needed (applied 15 reboot assertions, 5 matched)
 
 **ERRORS**
@@ -362,12 +355,6 @@ Regarding the output:
 - The last line beginning with a space and the `|` symbol are performance
   data metrics emitted by the plugin. Depending on your monitoring system, these
   metrics may be collected and exposed as graphs/charts.
-- The first line is emitted to `stderr`. Where the other output is intended
-  for use by Nagios to collect and display (via web UI or notifications), this
-  output is intended for humans to directly read when troubleshooting plugin
-  execution. If desired, this output can be muted by way of the `disabled`
-  option for the `log-level` flag. See [Logging output](#logging-output) for
-  additional details.
 - This output was captured on a Windows Server 2022 system, but is comparable
   to the output emitted by other Windows desktop & server systems.
 
