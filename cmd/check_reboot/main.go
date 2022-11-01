@@ -139,27 +139,32 @@ func main() {
 	log.Debug().Msg("Evaluating reboot assertions")
 	allAssertions.Evaluate()
 
-	log.Debug().Msg("Retrieving default registry reboot assertions")
-	registryignorePatterns := registry.DefaultRebootRequiredIgnoredPaths()
-	log.Debug().
-		Int("registry_ignore_patterns", len(registryignorePatterns)).
-		Msg("Retrieved default registry ignore path patterns")
+	switch {
+	case cfg.DisableDefaultIgnored:
+		log.Debug().Msg("Skipping use of default ignored path entries for reboot assertions")
+	default:
+		log.Debug().Msg("Retrieving default ignored path entries for registry reboot assertions")
+		registryignorePatterns := registry.DefaultRebootRequiredIgnoredPaths()
+		log.Debug().
+			Int("registry_ignore_patterns", len(registryignorePatterns)).
+			Msg("Retrieved default registry ignore path patterns")
 
-	log.Debug().Msg("Retrieving default file reboot assertions")
-	fileignorePatterns := files.DefaultRebootRequiredIgnoredPaths()
-	log.Debug().
-		Int("file_ignore_patterns", len(fileignorePatterns)).
-		Msg("Retrieved default file ignore path patterns")
+		log.Debug().Msg("Retrieving default ignored path entries for file assertions")
+		fileignorePatterns := files.DefaultRebootRequiredIgnoredPaths()
+		log.Debug().
+			Int("file_ignore_patterns", len(fileignorePatterns)).
+			Msg("Retrieved default file ignore path patterns")
 
-	log.Debug().Msg("Finished retrieving reboot assertions")
+		log.Debug().Msg("Finished retrieving default ignored path entries")
 
-	allIgnorePatterns := make([]string, 0, len(registryignorePatterns)+len(fileignorePatterns))
-	allIgnorePatterns = append(allIgnorePatterns, registryignorePatterns...)
-	allIgnorePatterns = append(allIgnorePatterns, fileignorePatterns...)
+		allIgnorePatterns := make([]string, 0, len(registryignorePatterns)+len(fileignorePatterns))
+		allIgnorePatterns = append(allIgnorePatterns, registryignorePatterns...)
+		allIgnorePatterns = append(allIgnorePatterns, fileignorePatterns...)
 
-	log.Debug().Msg("Filtering reboot assertions")
+		log.Debug().Msg("Filtering reboot assertions")
 
-	allAssertions.Filter(allIgnorePatterns)
+		allAssertions.Filter(allIgnorePatterns)
+	}
 
 	pd := []nagios.PerformanceData{
 		// The `time` (runtime) metric is appended at plugin exit, so do not

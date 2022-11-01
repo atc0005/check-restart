@@ -33,6 +33,7 @@ Go-based tooling used to detect whether a restart (service) or reboot (system) i
   - [`OK` result](#ok-result)
     - [Nothing found](#nothing-found)
     - [Problematic assertion listed but evaluation result ignored](#problematic-assertion-listed-but-evaluation-result-ignored)
+    - [Disable default ignored assertion path entries](#disable-default-ignored-assertion-path-entries)
   - [`WARNING` result](#warning-result)
     - [Without `verbose` flag](#without-verbose-flag)
     - [Verbose output](#verbose-output)
@@ -63,6 +64,10 @@ restart (service) or reboot (system) is needed.
 
 - Optionally list ignored assertions
   - ignored assertions are not shown by default
+
+- Optionally disable list of default ignored paths
+  - by default a small list of ignored paths are used to prevent known
+    problematic assertion matches from affecting service check results
 
 - Optional branding "signature"
   - used to indicate what Nagios plugin (and what version) is responsible for
@@ -107,6 +112,7 @@ been tested.
 
 - Windows Server 2012 R2
 - Windows Server 2016
+- Windows Server 2019
 - Windows Server 2022
 
 ## Installation
@@ -169,6 +175,9 @@ been tested.
      ; NOTE: stderr output is returned mixed in with stdout content. Disable logging to prevent this.
      ; check_reboot=scripts\\custom\\check_reboot.exe --verbose --show-ignored --log-level disabled
      ;
+     ; By default specific paths are ignored. You can optionally disable the default ignored paths.
+     ; check_reboot=scripts\\custom\\check_reboot.exe --verbose --show-ignored --disable-default-ignored
+     ;
      check_reboot=scripts\\custom\\check_reboot.exe --verbose --show-ignored
      ```
 
@@ -214,14 +223,15 @@ been tested.
 
 #### `check_reboot`
 
-| Flag                 | Required | Default | Repeat | Possible                                                                | Description                                                                                            |
-| -------------------- | -------- | ------- | ------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `branding`           | No       | `false` | No     | `branding`                                                              | Toggles emission of branding details with plugin status details. This output is disabled by default.   |
-| `h`, `help`          | No       | `false` | No     | `h`, `help`                                                             | Show Help text along with the list of supported flags.                                                 |
-| `version`            | No       | `false` | No     | `version`                                                               | Whether to display application version and then immediately exit application.                          |
-| `v`, `verbose`       | No       | `false` | No     | `v`, `verbose`                                                          | Toggles emission of detailed output. This level of output is disabled by default.                      |
-| `si`, `show-ignored` | No       | `false` | No     | `si`, `show-ignored`                                                    | Toggles emission of ignored assertion matches in the final plugin output. This is disabled by default. |
-| `ll`, `log-level`    | No       | `info`  | No     | `disabled`, `panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace` | Log message priority filter. Log messages with a lower level are ignored.                              |
+| Flag                            | Required | Default | Repeat | Possible                                                                | Description                                                                                            |
+| ------------------------------- | -------- | ------- | ------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `branding`                      | No       | `false` | No     | `branding`                                                              | Toggles emission of branding details with plugin status details. This output is disabled by default.   |
+| `h`, `help`                     | No       | `false` | No     | `h`, `help`                                                             | Show Help text along with the list of supported flags.                                                 |
+| `version`                       | No       | `false` | No     | `version`                                                               | Whether to display application version and then immediately exit application.                          |
+| `v`, `verbose`                  | No       | `false` | No     | `v`, `verbose`                                                          | Toggles emission of detailed output. This level of output is disabled by default.                      |
+| `si`, `show-ignored`            | No       | `false` | No     | `si`, `show-ignored`                                                    | Toggles emission of ignored assertion matches in the final plugin output. This is disabled by default. |
+| `dd`, `disable-default-ignored` | No       | `false` | No     | `dd`, `disable-default-ignored`                                         | Disables use of default ignored assertion path entries.                                                |
+| `ll`, `log-level`               | No       | `info`  | No     | `disabled`, `panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace` | Log message priority filter. Log messages with a lower level are ignored.                              |
 
 ### Logging output
 
@@ -307,6 +317,55 @@ Regarding the output:
   for an assertion match.
 - The `--show-ignored` flag is used to display assertions whose evaluation
   results were recorded, but are ignored when determining final plugin state.
+- This output was captured on a Windows Server 2012 system, but is comparable
+  to the output emitted by other Windows desktop & server systems.
+
+#### Disable default ignored assertion path entries
+
+This example uses the `--disable-default-ignored` flag to skip using the
+default ignored assertion path entries. This can be useful for cases where a
+sysadmin *wants* to apply the assertion match results for all discovered
+paths, even ones historically found to be false-positives or otherwise
+unreliable.
+
+```console
+C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe" --verbose --disable-default-ignored
+WARNING: Reboot needed (assertions: 15 applied, 1 matched, 0 ignored)
+
+**ERRORS**
+
+* reboot assertions matched, reboot needed
+
+**DETAILED INFO**
+
+
+Summary:
+
+  - 15 total reboot assertions applied
+  - 1 total reboot assertions matched
+  - 0 total reboot assertions ignored
+
+--------------------------------------------------
+
+Reboot required because:
+
+  - Subkeys for key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending found
+    subkey: 117cab2d-82b1-4b5a-a08c-4d62dbee7782
+
+
+ | 'errors'=0;;;; 'evaluated_assertions'=15;;;; 'evaluated_file_assertions'=1;;;; 'evaluated_registry_assertions'=14;;;; 'ignored_assertions'=0;;;; 'matched_assertions'=1;;;; 'time'=0ms;;;;
+```
+
+Regarding the output:
+
+- The last line beginning with a space and the `|` symbol are performance
+  data metrics emitted by the plugin. Depending on your monitoring system, these
+  metrics may be collected and exposed as graphs/charts.
+- The `--verbose` flag is used to display additional details (where available)
+  for an assertion match.
+- The `--disable-default-ignored` flag indicates that the default ignored path
+  entries will not be used; all discovered paths will be used to determine
+  final plugin state.
 - This output was captured on a Windows Server 2012 system, but is comparable
   to the output emitted by other Windows desktop & server systems.
 
