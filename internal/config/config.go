@@ -72,6 +72,11 @@ type Config struct {
 	// output.
 	ShowIgnored bool
 
+	// DisableDefaultIgnored is a flag indicating whether the user opted to
+	// disable the default ignored paths used during filtering to mark
+	// matching assertion path entries as ignored in the final plugin output.
+	DisableDefaultIgnored bool
+
 	// Log is an embedded zerolog Logger initialized via config.New().
 	Log zerolog.Logger
 }

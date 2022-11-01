@@ -16,11 +16,12 @@ const myAppURL string = "https://github.com/atc0005/check-restart"
 const ExitCodeCatchall int = 1
 
 const (
-	versionFlagHelp       string = "Whether to display application version and then immediately exit application."
-	logLevelFlagHelp      string = "Sets log level."
-	brandingFlagHelp      string = "Toggles emission of branding details with plugin status details. This output is disabled by default."
-	verboseOutputFlagHelp string = "Toggles emission of detailed output. This level of output is disabled by default."
-	showIgnoredFlagHelp   string = "Toggles emission of ignored assertion matches in the final plugin output. This is disabled by default."
+	versionFlagHelp               string = "Whether to display application version and then immediately exit application."
+	logLevelFlagHelp              string = "Sets log level."
+	brandingFlagHelp              string = "Toggles emission of branding details with plugin status details. This output is disabled by default."
+	verboseOutputFlagHelp         string = "Toggles emission of detailed output. This level of output is disabled by default."
+	showIgnoredFlagHelp           string = "Toggles emission of ignored assertion matches in the final plugin output. This is disabled by default."
+	disableDefaultIgnoredFlagHelp string = "Disables use of default ignored assertion path entries."
 )
 
 // Flag names for consistent references. Exported so that they're available
@@ -30,16 +31,18 @@ const (
 	// HelpFlagShort     string = "h"
 	// VersionFlagShort  string = "v"
 
-	VersionFlagLong      string = "version"
-	VerboseFlagLong      string = "verbose"
-	VerboseFlagShort     string = "v"
-	BrandingFlag         string = "branding"
-	TimeoutFlagLong      string = "timeout"
-	TimeoutFlagShort     string = "t"
-	ShowIgnoredFlagLong  string = "show-ignored"
-	ShowIgnoredFlagShort string = "si"
-	LogLevelFlagLong     string = "log-level"
-	LogLevelFlagShort    string = "ll"
+	VersionFlagLong                string = "version"
+	VerboseFlagLong                string = "verbose"
+	VerboseFlagShort               string = "v"
+	BrandingFlag                   string = "branding"
+	TimeoutFlagLong                string = "timeout"
+	TimeoutFlagShort               string = "t"
+	ShowIgnoredFlagLong            string = "show-ignored"
+	ShowIgnoredFlagShort           string = "si"
+	DisableDefaultIgnoredFlagShort string = "dd"
+	DisableDefaultIgnoredFlagLong  string = "disable-default-ignored"
+	LogLevelFlagLong               string = "log-level"
+	LogLevelFlagShort              string = "ll"
 )
 
 // Default flag settings if not overridden by user input
@@ -48,6 +51,7 @@ const (
 	defaultBranding              bool   = false
 	defaultVerboseOutput         bool   = false
 	defaultShowIgnored           bool   = false
+	defaultDisableDefaultIgnored bool   = false
 	defaultDisplayVersionAndExit bool   = false
 )
 
