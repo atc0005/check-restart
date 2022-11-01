@@ -67,6 +67,11 @@ type Config struct {
 	// the version string and then immediately exit the application.
 	ShowVersion bool
 
+	// ShowIgnored is a flag indicating whether the user opted to include
+	// assertion matches that are marked as ignored in the final plugin
+	// output.
+	ShowIgnored bool
+
 	// Log is an embedded zerolog Logger initialized via config.New().
 	Log zerolog.Logger
 }

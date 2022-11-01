@@ -15,17 +15,26 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
+// DefaultRebootRequiredIgnoredPaths provides the default collection of paths
+// for registry related reboot required assertions that should be ignored.
+func DefaultRebootRequiredIgnoredPaths() []string {
+	return []string{
+		// TODO: Should this be normalized?
+		`SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending\117cab2d-82b1-4b5a-a08c-4d62dbee7782`,
+	}
+}
+
 // DefaultRebootRequiredAssertions provides the default collection of registry
 // related reboot required assertions.
 func DefaultRebootRequiredAssertions() restart.RebootRequiredAsserters {
 
 	var assertions = restart.RebootRequiredAsserters{
-		KeyInt{
+		&KeyInt{
 			Key: Key{
 				root:  registry.LOCAL_MACHINE,
 				path:  `SOFTWARE\Microsoft\Updates`,
 				value: "UpdateExeVolatile",
-				evidence: KeyRebootEvidence{
+				evidenceExpected: KeyRebootEvidence{
 					// TODO: Is there a valid scenario where this would be
 					// false, yet we're specifying data for a registry key
 					// value?
@@ -39,12 +48,12 @@ func DefaultRebootRequiredAssertions() restart.RebootRequiredAsserters {
 			},
 			expectedData: 0,
 		},
-		KeyStrings{
+		&KeyStrings{
 			Key: Key{
 				root:  registry.LOCAL_MACHINE,
 				path:  `SYSTEM\CurrentControlSet\Control\Session Manager`,
 				value: "PendingFileRenameOperations",
-				evidence: KeyRebootEvidence{
+				evidenceExpected: KeyRebootEvidence{
 					ValueExists: true,
 				},
 			},
@@ -57,12 +66,12 @@ func DefaultRebootRequiredAssertions() restart.RebootRequiredAsserters {
 				AllValuesFound: false,
 			},
 		},
-		KeyStrings{
+		&KeyStrings{
 			Key: Key{
 				root:  registry.LOCAL_MACHINE,
 				path:  `SYSTEM\CurrentControlSet\Control\Session Manager`,
 				value: "PendingFileRenameOperations2",
-				evidence: KeyRebootEvidence{
+				evidenceExpected: KeyRebootEvidence{
 					ValueExists: true,
 				},
 			},
@@ -75,7 +84,7 @@ func DefaultRebootRequiredAssertions() restart.RebootRequiredAsserters {
 				AllValuesFound: false,
 			},
 		},
-		Key{
+		&Key{
 			root: registry.LOCAL_MACHINE,
 
 			// When a reboot is needed this key exists and contains one or
@@ -83,90 +92,83 @@ func DefaultRebootRequiredAssertions() restart.RebootRequiredAsserters {
 			// existence of the key is sufficient to indicate a reboot is
 			// needed.
 			path: `SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired`,
-			evidence: KeyRebootEvidence{
+			evidenceExpected: KeyRebootEvidence{
 				KeyExists: true,
 			},
 		},
-		/*
-			Temporarily disable until support for excluding specific paths is
-			added due to issues with specific subkey. Tests applied to systems
-			confirmed to have need of a reboot show that sufficient other
-			assertions are matched to reliably indicate the need for a reboot.
+		&Key{
+			root: registry.LOCAL_MACHINE,
 
-			Key{
-				root: registry.LOCAL_MACHINE,
-
-				// When a reboot is needed there are subkeys. Observed subkeys
-				// have a GUID naming pattern.
-				path: `SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending`,
-				evidence: KeyRebootEvidence{
-					SubKeysExist: true,
-				},
-
-				requirements: KeyAssertions{
-					KeyRequired: false,
-				},
+			// When a reboot is needed there are subkeys. Observed subkeys
+			// have a GUID naming pattern.
+			path: `SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending`,
+			evidenceExpected: KeyRebootEvidence{
+				SubKeysExist: true,
 			},
-		*/
-		Key{
+
+			requirements: KeyAssertions{
+				KeyRequired: false,
+			},
+		},
+		&Key{
 			root: registry.LOCAL_MACHINE,
 			path: `SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting`,
-			evidence: KeyRebootEvidence{
+			evidenceExpected: KeyRebootEvidence{
 				KeyExists: true,
 			},
 		},
-		Key{
+		&Key{
 			root:  registry.LOCAL_MACHINE,
 			path:  `SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce`,
 			value: "DVDRebootSignal",
-			evidence: KeyRebootEvidence{
+			evidenceExpected: KeyRebootEvidence{
 				ValueExists: true,
 			},
 			requirements: KeyAssertions{
 				KeyRequired: true,
 			},
 		},
-		Key{
+		&Key{
 			root: registry.LOCAL_MACHINE,
 			path: `SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending`,
-			evidence: KeyRebootEvidence{
+			evidenceExpected: KeyRebootEvidence{
 				KeyExists: true,
 			},
 		},
-		Key{
+		&Key{
 			root: registry.LOCAL_MACHINE,
 			path: `SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress`,
-			evidence: KeyRebootEvidence{
+			evidenceExpected: KeyRebootEvidence{
 				KeyExists: true,
 			},
 		},
-		Key{
+		&Key{
 			root: registry.LOCAL_MACHINE,
 			path: `SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending`,
-			evidence: KeyRebootEvidence{
+			evidenceExpected: KeyRebootEvidence{
 				KeyExists: true,
 			},
 		},
-		Key{
+		&Key{
 			root: registry.LOCAL_MACHINE,
 			path: `SOFTWARE\Microsoft\ServerManager\CurrentRebootAttempts`,
-			evidence: KeyRebootEvidence{
+			evidenceExpected: KeyRebootEvidence{
 				KeyExists: true,
 			},
 		},
-		Key{
+		&Key{
 			root:  registry.LOCAL_MACHINE,
 			path:  `SYSTEM\CurrentControlSet\Services\Netlogon`,
 			value: "JoinDomain",
-			evidence: KeyRebootEvidence{
+			evidenceExpected: KeyRebootEvidence{
 				ValueExists: true,
 			},
 		},
-		Key{
+		&Key{
 			root:  registry.LOCAL_MACHINE,
 			path:  `SYSTEM\CurrentControlSet\Services\Netlogon`,
 			value: "AvoidSpnSet",
-			evidence: KeyRebootEvidence{
+			evidenceExpected: KeyRebootEvidence{
 				ValueExists: true,
 			},
 		},
@@ -180,12 +182,12 @@ func DefaultRebootRequiredAssertions() restart.RebootRequiredAsserters {
 		// Here we explicitly note that non-matching key value data indicates
 		// a reboot AND that both the key and value are required for the
 		// specific data that we're comparing.
-		KeyPair{
+		&KeyPair{
 			additionalEvidence: KeyPairRebootEvidence{
 				PairedValuesDoNotMatch: true,
 			},
 			Keys: Keys{
-				Key{
+				&Key{
 					root:  registry.LOCAL_MACHINE,
 					path:  `SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName`,
 					value: "ComputerName",
@@ -194,7 +196,7 @@ func DefaultRebootRequiredAssertions() restart.RebootRequiredAsserters {
 						ValueRequired: true,
 					},
 				},
-				Key{
+				&Key{
 					root:  registry.LOCAL_MACHINE,
 					path:  `SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName`,
 					value: "ComputerName",

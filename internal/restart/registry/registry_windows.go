@@ -14,6 +14,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/atc0005/check-restart/internal/restart"
@@ -41,6 +43,19 @@ var (
 	_ restart.RebootRequiredAsserterWithDataDisplay = (*KeyStrings)(nil)
 	_ restart.RebootRequiredAsserterWithDataDisplay = (*KeyPair)(nil)
 )
+
+// Add "implements assertions" to fail the build if the
+// restart.RebootRequiredAsserterWithSubPaths implementation isn't correct.
+var (
+	_ restart.RebootRequiredAsserterWithSubPaths = (*KeyBinary)(nil)
+	_ restart.RebootRequiredAsserterWithSubPaths = (*KeyInt)(nil)
+	_ restart.RebootRequiredAsserterWithSubPaths = (*KeyString)(nil)
+	_ restart.RebootRequiredAsserterWithSubPaths = (*KeyStrings)(nil)
+)
+
+// Add "implements assertions" to fail the build if the restart.MatchedPath
+// implementation isn't correct.
+var _ restart.MatchedPath = (*MatchedPath)(nil)
 
 // ErrUnsupportedOS indicates that an unsupported OS has been detected.
 var ErrUnsupportedOS = errors.New("unsupported OS detected; this package requires a Windows OS to run properly")
@@ -124,13 +139,76 @@ type KeyRebootRequired interface {
 	String() string
 }
 
+// MatchedPath represents a path that was matched when performing an
+// evaluation of a "reboot required" assertion.
+type MatchedPath struct {
+	// root is the left-most element of a matched path. This is the beginning
+	// of a qualified path.
+	root string
+
+	// relative is the unqualified path (without the root element). The base
+	// element of the path is usually included in this element.
+	relative string
+
+	// base is the last element or the right-most "leaf" value of a matched
+	// path.
+	base string
+
+	// ignored indicates whether this value has been marked by filtering logic
+	// as not considered when determining whether a reboot is needed.
+	ignored bool
+}
+
+// MatchedPathIndex is a collection of path values that were matched during
+// evaluation of specified reboot required assertions.
+type MatchedPathIndex map[string]MatchedPath
+
+// Root returns the left-most element of a matched path. This returned value
+// is the beginning of a qualified path.
+func (mp MatchedPath) Root() string {
+	return mp.root
+}
+
+// Rel returns the relative (unqualified) element of a matched path. The base
+// element of the path is usually included in this element.
+func (mp MatchedPath) Rel() string {
+	return mp.relative
+}
+
+// Base returns the last or right-most "leaf" element of a matched path.
+func (mp MatchedPath) Base() string {
+	return mp.base
+}
+
+// Full returns the qualified matched path value.
+func (mp MatchedPath) Full() string {
+	// return filepath.Join(mp.root, mp.relative)
+	return fmt.Sprintf(`%v\%s`, mp.root, mp.relative)
+}
+
+// String provides a human readable version of the matched path value.
+func (mp MatchedPath) String() string {
+	return mp.Full()
+}
+
 // KeyRebootEvidence indicates what registry key evidence is required in order
 // to determine that a reboot is needed.
 type KeyRebootEvidence struct {
+	// DataOtherThanX indicates that a registry key value data field with a
+	// value other than the one indicated is sufficient evidence for a reboot.
 	DataOtherThanX bool
-	SubKeysExist   bool
-	ValueExists    bool
-	KeyExists      bool
+
+	// SubKeysExist indicates that the existence of registry key subkeys is
+	// sufficient evidence for a reboot.
+	SubKeysExist bool
+
+	// ValueExists indicates that the existence of a registry key value is
+	// sufficient evidence for a reboot.
+	ValueExists bool
+
+	// KeyExists indicates that the existence of a registry key path is
+	// sufficient evidence for a reboot.
+	KeyExists bool
 }
 
 // KeyPairRebootEvidence applies additional evidence "markers" for the KeyPair
@@ -138,6 +216,9 @@ type KeyRebootEvidence struct {
 // this (also optional) evidence marker is then checked to determine if a
 // reboot is required for the pair as a whole.
 type KeyPairRebootEvidence struct {
+	// PairedValuesDoNotMatch indicates that one registry key value data field
+	// differing from a second registry key value data field is sufficient
+	// evidence for a reboot.
 	PairedValuesDoNotMatch bool
 }
 
@@ -172,15 +253,15 @@ type KeyAssertions struct {
 	ValueRequired bool
 }
 
-// Key represents a registry key that if found (and requirements met)
-// indicates a reboot is needed.
-type Key struct {
-	// root is the root or base registry key (e.g, HKEY_LOCAL_MACHINE).
-	root registry.Key
+// KeyRuntime is a collection of values for a Key that are set during Key
+// evaluation. Unlike the static values set for a Key (e.g., root key, path,
+// any requirements or key assertions), these values are not known until
+// execution or runtime.
+type KeyRuntime struct {
 
-	// handle is a handle to an open registry key. This is set by the Open
-	// method on this type and required to be present by the Evaluate methods
-	// on this type and the super types embedding this type.
+	// handle is a handle to an open registry key. This is a required value
+	// used by evaluation logic applied by the "base" Key and "super" types
+	// enclosing it.
 	//
 	// Per official documentation, a handle to an open registry key should not
 	// be used after it is closed and should not remain open any longer than
@@ -188,15 +269,36 @@ type Key struct {
 	// https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regclosekey
 	handle *registry.Key
 
-	// skipClosingHandle indicates whether an open registry key handle should
-	// be left open at the end of an operation. Unless directed otherwise the
-	// default behavior for methods that open a registry key will be to
-	// cleanup by closing the handle at the end of the method call.
-	//
-	// Setting this field allows the handle to remain valid for later use.
-	// This is often used by super types that embed this type which need to
-	// perform additional operations using the handle.
-	// skipClosingHandle bool
+	// err records any error that occurs while performing an evaluation.
+	err error
+
+	// evidenceFound is the collection of evidence found when evaluating
+	// a specified assertion.
+	evidenceFound KeyRebootEvidence
+
+	// ignored indicates whether this value has been marked by filtering logic
+	// as not considered when determining whether a reboot is needed.
+	// ignored bool
+
+	// valueType represents the type of a specified registry value. This field
+	// is only set when a value is specified for a registry key assertion.
+	valueType string
+
+	// pathsMatched is a collection of path values that were matched during
+	// evaluation of specified reboot required assertions.
+	pathsMatched MatchedPathIndex
+}
+
+// Key represents a registry key that if found (and requirements met)
+// indicates a reboot is needed.
+type Key struct {
+	// root is the root or base registry key (e.g, HKEY_LOCAL_MACHINE).
+	root registry.Key
+
+	// runtime is a collection of values that are set during evaluation.
+	// Unlike static values that are known ahead of time, these values are not
+	// known until execution or runtime.
+	runtime KeyRuntime
 
 	// path is the registry key path minus the root key (e.g.,
 	// HKEY_LOCAL_MACHINE) and any value to be evaluated.
@@ -205,9 +307,9 @@ type Key struct {
 	// value is the registry key value name.
 	value string
 
-	// evidence indicates what is required in order to determine that a reboot
-	// is needed.
-	evidence KeyRebootEvidence
+	// evidenceExpected indicates what evidence is used to determine that a
+	// reboot is needed.
+	evidenceExpected KeyRebootEvidence
 
 	// requirements indicates what requirements must be met. If not met, this
 	// indicates that an error has occurred.
@@ -215,85 +317,317 @@ type Key struct {
 }
 
 // Keys is a collection of Key values.
-type Keys []Key
+type Keys []*Key
 
 // KeysRebootRequired is a collection of KeysRebootRequired values.
 type KeysRebootRequired []KeyRebootRequired
 
-// KeyPair represents two Keys that are evaluated together.
-type KeyPair struct {
-	Keys               Keys
-	additionalEvidence KeyPairRebootEvidence
-
+// KeyPairRuntime is a collection of values that are set during evaluation.
+// Unlike static values that are known ahead of time, these values are not
+// known until execution or runtime.
+type KeyPairRuntime struct {
 	// data represents the data stored for both registry key values.
 	data [][]byte
+
+	// evidenceFound is the collection of evidence found when evaluating
+	// a specified assertion.
+	evidenceFound KeyPairRebootEvidence
+}
+
+// KeyPair represents two Keys that are evaluated together.
+type KeyPair struct {
+	Keys Keys
+
+	// runtime is a collection of values that are set during evaluation.
+	// Unlike static values that are known ahead of time, these values are not
+	// known until execution or runtime.
+	runtime KeyPairRuntime
+
+	// additionalEvidence applies additional evidence "markers" for this type.
+	// If the reboot evidence markers for the enclosed Key type are not
+	// matched, this (also optional) set of evidence markers are then checked
+	// to determine if a reboot is required.
+	additionalEvidence KeyPairRebootEvidence
+}
+
+// KeyIntRuntime is a collection of values that are set during evaluation.
+// Unlike static values that are known ahead of time, these values are not
+// known until execution or runtime.
+type KeyIntRuntime struct {
+	// data represents the data stored for a registry key value.
+	data uint64
 }
 
 // KeyInt represents a Key containing integer data for comparison.
 type KeyInt struct {
 	Key
 
-	// data represents the data stored for a registry key value.
-	data uint64
+	// runtime is a collection of values that are set during evaluation.
+	// Unlike static values that are known ahead of time, these values are not
+	// known until execution or runtime.
+	runtime KeyIntRuntime
 
 	// expectedData represents the data that will be compared against the
 	// actual data stored for a registry key value.
 	expectedData uint64
 }
 
+// KeyBinaryRuntime is a collection of values that are set during evaluation.
+// Unlike static values that are known ahead of time, these values are not
+// known until execution or runtime.
+type KeyBinaryRuntime struct {
+	// data represents the actual data stored for a registry key value.
+	data []byte
+}
+
 // KeyBinary represents a Key containing binary data for comparison.
 type KeyBinary struct {
 	Key
 
-	// data represents the actual data stored for a registry key value.
-	data []byte
+	// runtime is a collection of values that are set during evaluation.
+	// Unlike static values that are known ahead of time, these values are not
+	// known until execution or runtime.
+	runtime KeyBinaryRuntime
 
 	// expectedData represents the data that will be compared against the
 	// actual data stored for a registry key value.
 	expectedData []byte
 }
 
+// KeyStringRuntime is a collection of values that are set during evaluation.
+// Unlike static values that are known ahead of time, these values are not
+// known until execution or runtime.
+type KeyStringRuntime struct {
+	// data represents the actual data stored for a registry key value.
+	data string
+}
+
 // KeyString represents a Key containing string data for comparison.
 type KeyString struct {
 	Key
 
-	// data represents the actual data stored for a registry key value.
-	data string
+	// runtime is a collection of values that are set during evaluation.
+	// Unlike static values that are known ahead of time, these values are not
+	// known until execution or runtime.
+	runtime KeyStringRuntime
 
 	// expectedData represents the data that will be compared against the
 	// actual data stored for a registry key value.
 	expectedData string
 }
 
+// KeyStringsRuntime is a collection of values that are set during evaluation.
+// Unlike static values that are known ahead of time, these values are not
+// known until execution or runtime.
+type KeyStringsRuntime struct {
+	// data represents the actual data stored for a registry key value.
+	data []string
+
+	// searchTermMatched is the specific search term that was matched out of
+	// the expected data (collection of strings). This is only set when the
+	// expected evidence is a single value match and not when matching all
+	// values.
+	searchTermMatched string
+
+	// evidenceFound is the collection of evidence found when evaluating
+	// a specified assertion.
+	evidenceFound KeyStringsRebootEvidence
+}
+
 // KeyStrings represents a Key containing multiple strings for comparison.
-// That collection of strings maps to a registry.MULTI_SZ key type.
-//
-// Multiple strings are stored in the registry Data file as null terminated
-// strings, but are retrieved as a slice of strings.
+// That collection of strings maps to a registry.MULTI_SZ key type and is
+// retrieved as a slice of strings.
 type KeyStrings struct {
 	Key
 
-	// data represents the actual data stored for a registry key value.
-	data []string
+	// runtime is a collection of values that are set during evaluation.
+	// Unlike static values that are known ahead of time, these values are not
+	// known until execution or runtime.
+	runtime KeyStringsRuntime
 
 	// expectedData represents the data that will be compared against the
 	// actual data stored for a registry key value.
 	expectedData []string
 
 	// additionalEvidence applies additional evidence "markers" for this type.
-	// KeyStrings type. If the reboot evidence markers for the enclosed Key
-	// type are not matched, this (also optional) set of evidence markers are
-	// then checked to determine if a reboot is required.
+	// If the reboot evidence markers for the enclosed Key type are not
+	// matched, this (also optional) set of evidence markers are then checked
+	// to determine if a reboot is required.
 	additionalEvidence KeyStringsRebootEvidence
 }
 
-// Evidence returns the specified evidence that is required in order to
-// determine that a reboot is needed.
-func (k Key) Evidence() KeyRebootEvidence {
-	return k.evidence
+// AddMatchedPath records given paths as successful assertion matches.
+// Duplicate entries are ignored.
+func (k *Key) AddMatchedPath(paths ...string) {
+
+	if k.runtime.pathsMatched == nil {
+		k.runtime.pathsMatched = make(MatchedPathIndex)
+	}
+
+	for _, path := range paths {
+		// Record MatchedPath if it does not already exist; we do not want to
+		// overwrite an existing entry in case any non-default metadata is set
+		// for the entry.
+		if _, ok := k.runtime.pathsMatched[path]; !ok {
+			matchedPath := MatchedPath{
+				root:     getRootKeyName(k.RootKey()),
+				relative: path,
+				base:     filepath.Base(path),
+			}
+
+			k.runtime.pathsMatched[path] = matchedPath
+		}
+	}
 }
 
-func (k Key) String() string {
+// MatchedPaths returns all recorded paths from successful assertion matches.
+// func (k *Key) MatchedPaths() []string {
+// 	paths := make([]string, 0, len(k.runtime.pathsMatched))
+//
+// 	for path := range k.runtime.pathsMatched {
+// 		paths = append(paths, path)
+// 	}
+//
+// 	return sort.StringSlice(paths)
+// }
+
+// MatchedPaths returns all recorded paths from successful assertion
+// matches.
+func (k *Key) MatchedPaths() restart.MatchedPaths {
+
+	pathStrings := make([]string, 0, len(k.runtime.pathsMatched))
+	matchedPaths := make(restart.MatchedPaths, 0, len(k.runtime.pathsMatched))
+
+	// Pull all of the keys.
+	for k := range k.runtime.pathsMatched {
+		pathStrings = append(pathStrings, k)
+	}
+
+	// Sort them.
+	sort.Strings(sort.StringSlice(pathStrings))
+
+	// Use them to pull out the MatchedPath entries in order.
+	for _, path := range pathStrings {
+		logger.Printf("Key.runtime.pathsMatched entry: %q", path)
+		matchedPaths = append(matchedPaths, k.runtime.pathsMatched[path])
+	}
+
+	return matchedPaths
+}
+
+// SetFoundEvidenceKeyExists records that the KeyExists reboot evidence was found.
+func (k *Key) SetFoundEvidenceKeyExists() {
+	logger.Printf("Recording that the KeyExists evidence was found for %q", k)
+	k.runtime.evidenceFound.KeyExists = true
+}
+
+// SetFoundEvidenceValueExists records that the ValueExists reboot evidence
+// was found.
+func (k *Key) SetFoundEvidenceValueExists() {
+	logger.Printf("Recording that the ValueExists evidence was found for %q", k)
+	k.runtime.evidenceFound.ValueExists = true
+}
+
+// SetFoundEvidenceSubKeysExist records that the SubKeysExist reboot evidence
+// was found.
+func (k *Key) SetFoundEvidenceSubKeysExist() {
+	logger.Printf("Recording that the SubKeysExist evidence was found for %q", k)
+	k.runtime.evidenceFound.SubKeysExist = true
+}
+
+// SetFoundEvidenceDataOtherThanX records that the DataOtherThanX reboot
+// evidence was found.
+func (k *Key) SetFoundEvidenceDataOtherThanX() {
+	logger.Printf("Recording that the DataOtherThanX evidence was found for %q", k)
+	k.runtime.evidenceFound.DataOtherThanX = true
+}
+
+// ExpectedEvidence returns the specified evidence that (if found) indicates a
+// reboot is needed.
+func (k *Key) ExpectedEvidence() KeyRebootEvidence {
+	return k.evidenceExpected
+}
+
+// DiscoveredEvidence returns the discovered evidence from an earlier
+// evaluation.
+func (k *Key) DiscoveredEvidence() KeyRebootEvidence {
+	return k.runtime.evidenceFound
+}
+
+// HasEvidence indicates whether any evidence was found for an assertion
+// evaluation.
+func (k *Key) HasEvidence() bool {
+	if k.runtime.evidenceFound.DataOtherThanX {
+		return true
+	}
+
+	if k.runtime.evidenceFound.KeyExists {
+		return true
+	}
+
+	if k.runtime.evidenceFound.SubKeysExist {
+		return true
+	}
+
+	if k.runtime.evidenceFound.ValueExists {
+		return true
+	}
+
+	return false
+}
+
+// RebootReasons returns a list of the reasons associated with the evidence
+// found for an evaluation that indicates a reboot is needed.
+func (k *Key) RebootReasons() []string {
+
+	// The usual scenario is one reason per evidence match.
+	reasons := make([]string, 0, 1)
+
+	if k.runtime.evidenceFound.DataOtherThanX {
+		reasons = append(reasons, fmt.Sprintf(
+			"Data for value %s for key %s found", k.Value(), k,
+		))
+	}
+
+	if k.runtime.evidenceFound.KeyExists {
+		reasons = append(reasons, fmt.Sprintf(
+			"Key %s found", k,
+		))
+	}
+
+	if k.runtime.evidenceFound.SubKeysExist {
+		reasons = append(reasons, fmt.Sprintf(
+			"Subkeys for key %s found", k,
+		))
+	}
+
+	if k.runtime.evidenceFound.ValueExists {
+		switch {
+		case k.runtime.valueType != "":
+			reasons = append(reasons, fmt.Sprintf(
+				"Value %s of type %s for key %s found",
+				k.Value(),
+				k.runtime.valueType,
+				k,
+			))
+		default:
+			logger.Print(
+				"BUG: k.runtime.valueType should have been recorded " +
+					"when evaluating a specified registry key value",
+			)
+			reasons = append(reasons, fmt.Sprintf(
+				"Value %s for key %s found",
+				k.Value(),
+				k,
+			))
+		}
+	}
+
+	return reasons
+}
+
+// String provides the fully qualified path for a Key.
+func (k *Key) String() string {
 
 	// NOTE: Printing this way does not indicate what registry key values were
 	// checked.
@@ -313,31 +647,29 @@ func (k Key) String() string {
 // encountered. Requirements does not indicate whether a reboot is needed,
 // only how potential "key not found" or "value not found" conditions should
 // be treated.
-func (k Key) Requirements() KeyAssertions {
+func (k *Key) Requirements() KeyAssertions {
 	return k.requirements
 }
 
-// Path returns the specified registry key path.
-func (k Key) Path() string {
+// Path returns the specified (unqualified) registry key path.
+func (k *Key) Path() string {
 	return k.path
 }
 
 // RootKey returns the specified registry root key.
-func (k Key) RootKey() registry.Key {
+func (k *Key) RootKey() registry.Key {
 	return k.root
 }
 
 // Value returns the specified registry key value.
-func (k Key) Value() string {
+func (k *Key) Value() string {
 	return k.value
 }
 
 // Handle returns the current handle to the open registry key if it exists,
 // otherwise returns nil.
-//
-// TODO: Should this be provided?
-func (k Key) Handle() *registry.Key {
-	return k.handle
+func (k *Key) Handle() *registry.Key {
+	return k.runtime.handle
 }
 
 // open creates a handle to the registry key and saves it for later use. The
@@ -345,23 +677,19 @@ func (k Key) Handle() *registry.Key {
 // used by the open registry key.
 func (k *Key) open() error {
 	// Skip opening a handle to the registry key if it is already open.
-	if k.handle != nil {
+	if k.runtime.handle != nil {
 		logger.Printf("Handle exists; registry key %q is already open", k)
 		return ErrKeyAlreadyOpen
 	}
 
 	logger.Printf("Handle does not exist, attempting to open registry key %q", k)
 
-	// NOTE: If we wish to enumerate subkeys we should request access
-	// to do so along with permission to query values.
+	// Enumerating subkeys requires requesting access to do so along with
+	// permission to query values.
 	//
 	// We specify both permissions by combining the values via OR.
 	// https://stackoverflow.com/questions/47814070/golang-cant-enumerate-subkeys-of-registry-key
-	// k, err := registry.OpenKey(key.RootKey(), path, registry.QUERY_VALUE|registry.ENUMERATE_SUB_KEYS)
-
-	// We do not request access to enumerate subkeys because we can get the
-	// needed subkey count by calling Stat on the open key.
-	openKey, err := registry.OpenKey(k.RootKey(), k.Path(), registry.QUERY_VALUE)
+	openKey, err := registry.OpenKey(k.RootKey(), k.Path(), registry.QUERY_VALUE|registry.ENUMERATE_SUB_KEYS)
 	switch {
 	case errors.Is(err, registry.ErrNotExist):
 		if k.Requirements().KeyRequired {
@@ -370,6 +698,9 @@ func (k *Key) open() error {
 		}
 
 		logger.Printf("Key %q not found, but not marked as required.", k)
+
+		// TODO: Perhaps return nil instead? What do we really gain by
+		// returning an error that isn't intended to be actionable?
 		return ErrMissingOptionalKey
 
 	case err != nil:
@@ -394,12 +725,12 @@ func (k *Key) open() error {
 
 	}
 
-	k.handle = &openKey
+	k.runtime.handle = &openKey
 
 	// TODO: Any other feasible way to handle this? This is a logic problem
 	// that needs to be resolved.
-	if k.handle == nil {
-		panic("BUG: k.handle is nil and should not be. Explosions commence!")
+	if k.runtime.handle == nil {
+		panic("BUG: k.runtime.handle is nil and should not be. Explosions commence!")
 	}
 
 	return nil
@@ -411,19 +742,19 @@ func (k *Key) open() error {
 // to close the handle.
 func (k *Key) close() error {
 
-	if k.handle == nil {
+	if k.runtime.handle == nil {
 		logger.Printf("Handle for %s already closed", k)
 		return nil
 	}
 
-	if err := k.handle.Close(); err != nil {
+	if err := k.runtime.handle.Close(); err != nil {
 		logger.Printf("Error encountered closing handle to %s: %v", k, err)
 		return err
 	}
 
 	// Remove reference to the handle since it is no longer valid.
 	logger.Printf("Removed reference to the handle since it is no longer valid")
-	k.handle = nil
+	k.runtime.handle = nil
 
 	return nil
 
@@ -431,7 +762,7 @@ func (k *Key) close() error {
 
 // Validate performs basic validation. An error is returned for any validation
 // failures.
-func (k Key) Validate() error {
+func (k *Key) Validate() error {
 
 	switch getRootKeyName(k.root) {
 	case RegKeyRootNameUnknown:
@@ -453,7 +784,7 @@ func (k Key) Validate() error {
 	// Having an empty Value is acceptable only for assertions which do not
 	// require it. For example, if we are only looking for the presence of the
 	// key or subkeys we do not need the key value.
-	if k.Value() == "" && k.evidence.ValueExists {
+	if k.Value() == "" && k.evidenceExpected.ValueExists {
 		// logger.Printf("evidence: %+v", k.evidence)
 		return fmt.Errorf(
 			"required registry value not specified: %w",
@@ -463,10 +794,10 @@ func (k Key) Validate() error {
 
 	// Validate reboot evidence values.
 	switch {
-	case k.evidence.DataOtherThanX:
-	case k.evidence.SubKeysExist:
-	case k.evidence.ValueExists:
-	case k.evidence.KeyExists:
+	case k.evidenceExpected.DataOtherThanX:
+	case k.evidenceExpected.SubKeysExist:
+	case k.evidenceExpected.ValueExists:
+	case k.evidenceExpected.KeyExists:
 	default:
 
 		// For all cases other than KeyPair types one of the reboot evidence
@@ -498,58 +829,60 @@ func (k Key) Validate() error {
 // Depending on the value provided, a handle to an open registry key is
 // retained after execution completes so that a "super type" key can perform
 // further evaluation of registry key data.
-func (k *Key) evaluate(closeHandle bool) restart.RebootCheckResult {
+func (k *Key) evaluate(closeHandle bool) {
 	logger.Printf("Evaluating key %q", k)
 
-	evalOpenKeyResult := k.evalOpenKey()
-	if evalOpenKeyResult.Err != nil {
-
+	if err := k.evalOpenKey(); err != nil {
 		logger.Print("Evaluation of specified registry key unsuccessful")
 
 		// Replace with general error value that the client code can more
 		// easily use to determine severity.
 		switch {
-		case errors.Is(evalOpenKeyResult.Err, ErrMissingOptionalKey):
-			evalOpenKeyResult.Err = restart.ErrMissingOptionalItem
+		case errors.Is(err, ErrMissingOptionalKey):
+			logger.Printf("evalOpenKey(): Setting ErrMissingOptionalKey for %q", k)
+			k.runtime.err = restart.ErrMissingOptionalItem
 
-		case errors.Is(evalOpenKeyResult.Err, ErrMissingRequiredKey):
-			evalOpenKeyResult.Err = restart.ErrMissingRequiredItem
+		case errors.Is(err, ErrMissingRequiredKey):
+			logger.Printf("evalOpenKey(): Setting ErrMissingRequiredKey for %q", k)
+			k.runtime.err = restart.ErrMissingRequiredItem
+		default:
+			logger.Printf("evalOpenKey(): Setting general error for %q", k)
+			k.runtime.err = err
 		}
 
-		return evalOpenKeyResult
+		return
 	}
 
-	// Only attempt to close the handle if we successfully opened it.
+	// Only attempt to close the handle if we successfully opened it and if we
+	// were asked to close it.
 	defer func() {
 		if !closeHandle {
 			logger.Printf("Skipping closure of handle to %q as requested", k)
 			return
 		}
 
-		logger.Printf("Closing handle to %q", k)
+		logger.Printf("Attempting to close handle to %q", k)
 		if err := k.close(); err != nil {
 			logger.Printf("Failed to close handle to open key %q", k)
 		}
 	}()
 
-	// If a reboot is needed skip any further checks.
-	if evalOpenKeyResult.RebootRequired {
-		return evalOpenKeyResult
+	// If evidence of the need for a reboot is found skip any further checks.
+	if k.HasEvidence() {
+		logger.Printf("HasEvidence() early exit triggered %q", k)
+		return
 	}
 
-	evalValueResult := k.evalValue()
-	if evalValueResult.Err != nil || evalValueResult.RebootRequired {
-		return evalValueResult
+	if err := k.evalValue(); err != nil {
+		logger.Printf("evalValue() error for %q: %s", k, err)
+		k.runtime.err = err
+		return
 	}
 
-	evalSubKeysResult := k.evalSubKeys()
-	if evalSubKeysResult.Err != nil || evalSubKeysResult.RebootRequired {
-		return evalSubKeysResult
-	}
-
-	return restart.RebootCheckResult{
-		Examined:       k,
-		RebootRequired: false,
+	if err := k.evalSubKeys(); err != nil {
+		logger.Printf("evalSubKeys() error for %q: %s", k, err)
+		k.runtime.err = err
+		return
 	}
 }
 
@@ -559,7 +892,7 @@ func (k *Key) evaluate(closeHandle bool) restart.RebootCheckResult {
 //
 // The caller is responsible for calling the close method to free resources
 // used by the open registry key.
-func (k *Key) evalOpenKey() restart.RebootCheckResult {
+func (k *Key) evalOpenKey() error {
 
 	logger.Printf("Opening key %q", k)
 
@@ -569,33 +902,21 @@ func (k *Key) evalOpenKey() restart.RebootCheckResult {
 		logger.Printf("Key %q is already open?", k)
 		logger.Print("TODO: Probably worth checking how this occurred.")
 
-		return restart.RebootCheckResult{
-			Examined:       k,
-			RebootRequired: false,
-			Err: fmt.Errorf(
-				"evalOpenKey() for key %s failed: %w", k, ErrKeyAlreadyOpen,
-			),
-		}
+		return fmt.Errorf(
+			"evalOpenKey() for key %s failed: %w", k, ErrKeyAlreadyOpen,
+		)
 
 	case errors.Is(err, ErrMissingRequiredKey):
 		logger.Printf("Key %q not found, but marked as required.", k)
-		return restart.RebootCheckResult{
-			Examined:       k,
-			RebootRequired: false,
-			Err: fmt.Errorf(
-				"evalOpenKey() for key %s failed: %w", k, ErrMissingRequiredKey,
-			),
-		}
+		return fmt.Errorf(
+			"evalOpenKey() for key %s failed: %w", k, ErrMissingRequiredKey,
+		)
 
 	case errors.Is(err, ErrMissingOptionalKey):
 		logger.Printf("Key %q not found, but not marked as required.", k)
-		return restart.RebootCheckResult{
-			Examined:       k,
-			RebootRequired: false,
-			Err: fmt.Errorf(
-				"evalOpenKey() for key %s unsuccessful: %w", k, ErrMissingOptionalKey,
-			),
-		}
+		return fmt.Errorf(
+			"evalOpenKey() for key %s unsuccessful: %w", k, ErrMissingOptionalKey,
+		)
 
 	case err != nil:
 		keyReqLabel := KeyReqOptionalLabel
@@ -610,148 +931,117 @@ func (k *Key) evalOpenKey() restart.RebootCheckResult {
 			err,
 		)
 
-		return restart.RebootCheckResult{
-			Examined:       k,
-			RebootRequired: false,
-			Err: fmt.Errorf(
-				"evalOpenKey() for key %s failed: %s: %w",
-				keyReqLabel,
-				k,
-				err,
-			),
-		}
+		return fmt.Errorf(
+			"evalOpenKey() for key %s failed: %s: %w",
+			keyReqLabel,
+			k,
+			err,
+		)
 
 	default:
 
 		logger.Printf("Key %q opened ...", k)
 
-		if k.Evidence().KeyExists {
-			return restart.RebootCheckResult{
-				Examined:       k,
-				RebootRequired: true,
-				RebootReasons: []string{
-					fmt.Sprintf(
-						"Key %s found", k,
-					),
-				},
-			}
+		if k.ExpectedEvidence().KeyExists {
+			logger.Println("Reboot Evidence found!")
+			k.SetFoundEvidenceKeyExists()
+			k.AddMatchedPath(k.Path())
 		}
 
-		return restart.RebootCheckResult{
-			Examined:       k,
-			RebootRequired: false,
-		}
 	}
 
+	return nil
 }
 
 // evalSubKeys performs the tasks needed to evaluate whether the presence of
 // subkeys for a given registry key indicates the need for a reboot.
-func (k *Key) evalSubKeys() restart.RebootCheckResult {
+func (k *Key) evalSubKeys() error {
 
 	// error condition; the handle should already be in place by the time this
 	// method is called.
-	if k.handle == nil {
-		return restart.RebootCheckResult{
-			Examined:       k,
-			RebootRequired: false,
-			Err: fmt.Errorf(
-				"required handle to registry key %s is not open: %w",
-				k,
-				ErrKeyNotOpen,
-			),
-		}
+	if k.runtime.handle == nil {
+		return fmt.Errorf(
+			"required handle to registry key %s is not open: %w",
+			k,
+			ErrKeyNotOpen,
+		)
 	}
 
 	// Only check for subkeys if we are using their presence to indicate a
 	// required reboot.
 	switch {
-	case k.Evidence().SubKeysExist:
+	case k.ExpectedEvidence().SubKeysExist:
 
 		logger.Printf("SubKeysExist specified; checking for subkeys for %q", k)
 
-		keyInfo, err := k.handle.Stat()
+		// Fetch subkey names and record as matched paths.
+		subKeyNames, err := k.runtime.handle.ReadSubKeyNames(0)
 		if err != nil {
-			return restart.RebootCheckResult{
-				Examined:       k,
-				RebootRequired: false,
-				Err: fmt.Errorf(
-					"unexpected error occurred while retrieving info for key %s: %w",
-					k,
-					err,
-				),
-			}
+			return fmt.Errorf(
+				"unexpected error occurred while retrieving subkey names for key %s: %w",
+				k,
+				err,
+			)
 		}
 
-		logger.Printf("%d subkeys found for key %q", keyInfo.SubKeyCount, k)
+		logger.Printf("%d subkeys found for key %q", len(subKeyNames), k)
 
-		// There are keys, so a reboot is required.
-		if keyInfo.SubKeyCount > 0 {
-			logger.Println("Reboot Required!")
-			return restart.RebootCheckResult{
-				Examined:       k,
-				RebootRequired: true,
-				RebootReasons: []string{
-					fmt.Sprintf(
-						"Subkeys for key %s found", k,
-					),
-				},
+		if len(subKeyNames) > 0 {
+			logger.Println("Reboot Evidence found!")
+			k.SetFoundEvidenceSubKeysExist()
+
+			relativePathSubKeyNames := make([]string, 0, len(subKeyNames))
+			for _, subKeyName := range subKeyNames {
+				relativePathSubKeyNames = append(
+					relativePathSubKeyNames, filepath.Join(
+						k.path, subKeyName,
+					))
 			}
+
+			k.AddMatchedPath(relativePathSubKeyNames...)
+
+			return nil
 		}
 
 	default:
 		logger.Printf("SubKeysExist not specified; skipped checking for subkeys for %q", k)
 	}
 
-	return restart.RebootCheckResult{
-		Examined:       k,
-		RebootRequired: false,
-	}
+	return nil
 }
 
 // evalValue performs the tasks needed to evaluate whether the presence of a
 // given registry key value indicates the need for a reboot.
-func (k *Key) evalValue() restart.RebootCheckResult {
+func (k *Key) evalValue() error {
 
 	// error condition; the handle should already be in place by the time this
 	// method is called.
-	if k.handle == nil {
-		return restart.RebootCheckResult{
-			Examined:       k,
-			RebootRequired: false,
-			Err: fmt.Errorf(
-				"required handle to registry key %s is not open: %w",
-				k,
-				ErrKeyNotOpen,
-			),
-		}
+	if k.runtime.handle == nil {
+		return fmt.Errorf(
+			"required handle to registry key %s is not open: %w",
+			k,
+			ErrKeyNotOpen,
+		)
 	}
 
 	if k.Value() != "" {
 
 		logger.Printf("Value %q specified for key %q", k.Value(), k)
 
-		_, valTypeCode, err := k.handle.GetValue(k.Value(), nil)
+		_, valTypeCode, err := k.runtime.handle.GetValue(k.Value(), nil)
 		switch {
 		case errors.Is(err, registry.ErrNotExist):
 			if k.Requirements().ValueRequired {
 				logger.Printf("Value %q not found, but marked as required.", k.Value())
-				return restart.RebootCheckResult{
-					Examined:       k,
-					RebootRequired: false,
-					Err: fmt.Errorf(
-						"value %s not found, but marked as required: %w",
-						k.Value(),
-						restart.ErrMissingValue,
-					),
-				}
+				return fmt.Errorf(
+					"value %s not found, but marked as required: %w",
+					k.Value(),
+					restart.ErrMissingValue,
+				)
 			}
 
 			logger.Printf("Value %q not found, but not marked as required.", k.Value())
-			return restart.RebootCheckResult{
-				Examined:       k,
-				RebootRequired: false,
-			}
+			return nil
 
 		case err != nil:
 			valReqLabel := KeyReqOptionalLabel
@@ -766,59 +1056,234 @@ func (k *Key) evalValue() restart.RebootCheckResult {
 				err,
 			)
 
-			return restart.RebootCheckResult{
-				Examined:       k,
-				RebootRequired: false,
-				Err: fmt.Errorf(
-					"unexpected error occurred while retrieving %s value %s: %w",
-					valReqLabel,
-					k.Value(),
-					err,
-				),
-			}
+			return fmt.Errorf(
+				"unexpected error occurred while retrieving %s value %s: %w",
+				valReqLabel,
+				k.Value(),
+				err,
+			)
+
 		}
 
 		valType := getValueType(valTypeCode)
+		k.runtime.valueType = valType
 
 		logger.Printf(
 			"Value %q of type %q for key %q found!", k.Value(), valType, k)
-		if k.Evidence().ValueExists {
-			logger.Println("Reboot Required!")
-			return restart.RebootCheckResult{
-				Examined:       k,
-				RebootRequired: true,
-				RebootReasons: []string{
-					fmt.Sprintf(
-						"Value %s of type %s for key %s found",
-						k.Value(),
-						valType,
-						k,
-					),
-				},
-			}
+		if k.ExpectedEvidence().ValueExists {
+			logger.Println("Reboot Evidence found!")
+			k.SetFoundEvidenceValueExists()
+
+			logger.Printf("Recording matched path %s", k.Path())
+			k.AddMatchedPath(k.Path())
+
+			return nil
 		}
 	}
 
 	logger.Printf("Value NOT specified for key %q", k)
 
-	return restart.RebootCheckResult{
-		Examined:       k,
-		RebootRequired: false,
+	return nil
+
+}
+
+// Err returns the error (if any) associated with evaluating the Key. Whether
+// the Key has been marked as ignored is not considered.
+func (k *Key) Err() error {
+	return k.runtime.err
+}
+
+// Ignored indicates whether the Key has been marked as ignored.
+//
+// For the entire key to be ignored, this means that *all* recorded matched
+// path entries have to be marked as ignored.
+func (k *Key) Ignored() bool {
+
+	numMatchedPaths := len(k.runtime.pathsMatched)
+
+	// logger.Printf("%d pathsMatched entries for %q", numMatchedPaths, k)
+
+	// An empty collection of entries can occur if an error occurred or if no
+	// assertions were matched.
+	if numMatchedPaths == 0 {
+		// logger.Printf("%d pathsMatched entries for %q", numMatchedPaths, k)
+		return false
 	}
 
+	for _, v := range k.runtime.pathsMatched {
+		if !v.ignored {
+			// logger.Printf("%s is not marked as ignored\n", v)
+			return false
+		}
+
+		logger.Printf("%s is marked as ignored\n", v)
+	}
+
+	// The entire Key is ignored *only* if all recorded matched path entries
+	// are marked as ignored.
+	return true
+}
+
+// HasIgnored indicates whether any matched path for the Key have been marked
+// as ignored.
+func (k *Key) HasIgnored() bool {
+	for _, v := range k.runtime.pathsMatched {
+		if v.ignored {
+			return true
+		}
+	}
+
+	return false
+}
+
+// HasSubPathMatches indicates whether the Key has evidence of subkey matches.
+func (k *Key) HasSubPathMatches() bool {
+	return k.runtime.evidenceFound.SubKeysExist
+}
+
+// RebootRequired indicates whether an evaluation determined that a reboot is
+// needed. If the Key has been marked as ignored (all recorded matched paths
+// marked as ignored) the need for a reboot is not indicated.
+func (k *Key) RebootRequired() bool {
+	if !k.Ignored() && k.HasEvidence() {
+		return true
+	}
+
+	return false
+}
+
+// IsCriticalState indicates whether an evaluation determined that the Key is
+// in a CRITICAL state. Whether the Key has been marked as Ignored is
+// considered. The caller is responsible for filtering the collection prior to
+// calling this method.
+func (k *Key) IsCriticalState() bool {
+	switch {
+
+	// If we could determine that a reboot is required we consider that to be
+	// a WARNING state.
+	case !k.Ignored() && k.RebootRequired():
+		return false
+
+	// If we were unable to determine whether a reboot is required due to
+	// errors we consider that to be a CRITICAL state *unless* it is a very
+	// specific sentinel error.
+	case !k.Ignored() && k.Err() != nil:
+		if errors.Is(k.Err(), restart.ErrMissingOptionalItem) {
+			return false
+		}
+		return true
+
+	// No reboot required and no errors, not CRITICAL state.
+	default:
+		return false
+
+	}
+}
+
+// IsWarningState indicates whether an evaluation determined that the Key is
+// in a WARNING state. Whether the Key has been marked as Ignored is
+// considered. The caller is responsible for filtering the collection prior to
+// calling this method.
+func (k *Key) IsWarningState() bool {
+	return !k.Ignored() && k.RebootRequired()
+}
+
+// IsOKState indicates whether an evaluation determined that the Key is in an
+// OK state. Whether the Key has been marked as Ignored is considered. The
+// caller is responsible for filtering the collection prior to calling this
+// method.
+// TODO: Cleanup the logic.
+func (k *Key) IsOKState() bool {
+	switch {
+	case k.Ignored():
+		logger.Printf("%q has ignored flag set; returning true", k)
+		return true
+	case !k.Ignored() && k.RebootRequired():
+		logger.Printf("%q does not have ignored flag set, has RebootRequired; returning false", k)
+		return false
+
+	// TODO: Pull this out and expose via helper method to determine if error
+	// can be safely skipped. Perhaps don't return an error at all for missing
+	// optional items?
+	case !k.Ignored() && k.Err() != nil:
+		if errors.Is(k.Err(), restart.ErrMissingOptionalItem) {
+			logger.Printf("%q does not have ignored flag set, has ErrMissingOptionalItem error; returning true (OK state)", k)
+			return true
+		}
+		logger.Printf("%q does not have ignored flag set, has error other than ErrMissingOptionalItem; returning false", k)
+		logger.Printf("%q has error: %s", k, k.Err())
+		return false
+
+	default:
+		logger.Printf("%q does not match other case statements; returning true (OK state)", k)
+		return true
+	}
 }
 
 // Evaluate performs the minimum number of assertions to determine whether a
 // reboot is needed. If an error is encountered further checks are skipped.
-func (k Key) Evaluate() restart.RebootCheckResult {
-	return k.evaluate(true)
+func (k *Key) Evaluate() {
+	k.evaluate(true)
+}
+
+// Filter uses the list of specified ignore patterns to mark each matched path
+// for the Key as ignored *IF* a match is found. If no matched paths are
+// recorded Filter makes no changes. Filter should be called before performing
+// final state evaluation.
+func (k *Key) Filter(ignorePatterns []string) {
+
+	numIgnorePatterns := len(ignorePatterns)
+	var numIgnorePatternsApplied int
+
+	if numIgnorePatterns == 0 {
+		logger.Printf("0 ignore patterns specified for %q; skipping Filter", k)
+		return
+	}
+
+	logger.Printf(
+		"%d ignore patterns specified for %q; applying Filter",
+		numIgnorePatterns,
+		k,
+	)
+
+	for pathString, matchedPath := range k.runtime.pathsMatched {
+		logger.Printf("Searching matched path %q for ignore pattern matches", pathString)
+
+		for _, ignorePattern := range ignorePatterns {
+			logger.Printf("case-insensitively performing substring match for %q", ignorePattern)
+
+			if strings.Contains(strings.ToLower(pathString), strings.ToLower(ignorePattern)) {
+				logger.Printf("matchedPath %q contains ignorePattern %q", pathString, ignorePattern)
+				logger.Printf("marking matched path %q as ignored", pathString)
+
+				matchedPath.ignored = true
+				k.runtime.pathsMatched[pathString] = matchedPath
+				numIgnorePatternsApplied++
+			}
+		}
+	}
+
+	logger.Printf("%d ignore patterns applied for %q", numIgnorePatternsApplied, k)
+
+}
+
+// HasEvidence indicates whether any evidence was found for an assertion
+// evaluation.
+func (k Keys) HasEvidence() bool {
+	for _, key := range k {
+		if key.HasEvidence() {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Validate performs basic validation of all items in the collection. An error
 // is returned for any validation failures.
 func (k Keys) Validate() error {
-	for _, k := range k {
-		if err := k.Validate(); err != nil {
+	for _, key := range k {
+		if err := key.Validate(); err != nil {
 			return err
 		}
 	}
@@ -839,18 +1304,18 @@ func (krr KeysRebootRequired) Validate() error {
 }
 
 // Data returns the actual data stored for a registry key value.
-func (kb KeyBinary) Data() []byte {
-	return kb.data
+func (kb *KeyBinary) Data() []byte {
+	return kb.runtime.data
 }
 
 // ExpectedData returns the expected data stored for a registry key value.
-func (kb KeyBinary) ExpectedData() []byte {
+func (kb *KeyBinary) ExpectedData() []byte {
 	return kb.expectedData
 }
 
 // DataDisplay provides a string representation of a registry key values's
 // actual data for display purposes.
-func (kb KeyBinary) DataDisplay() string {
+func (kb *KeyBinary) DataDisplay() string {
 	// TODO: Apply specific formatting to match how Windows binary registry
 	// values are usually displayed.
 	return fmt.Sprintf("%v", kb.Data())
@@ -858,52 +1323,48 @@ func (kb KeyBinary) DataDisplay() string {
 
 // Evaluate performs the minimum number of assertions to determine whether a
 // reboot is needed. If an error is encountered further checks are skipped.
-func (kb KeyBinary) Evaluate() restart.RebootCheckResult {
+func (kb *KeyBinary) Evaluate() {
 
 	// Evaluate embedded "base" Key first where we check shared requirements
 	// and reboot evidence. We also explicitly indicate that we wish to retain
 	// a handle to the open registry key (for use here).
-	baseKeyEvalResult := kb.evaluate(false)
+	kb.evaluate(false)
 
 	defer func() {
-		logger.Printf("Closing open handle to %q", kb)
+		logger.Printf("Attempting to close handle to %q", kb)
 		if err := kb.close(); err != nil {
 			logger.Printf("Failed to close handle to open key %q", kb)
 		}
 
-		if kb.handle != nil {
+		if kb.Handle() != nil {
 			logger.Printf("Failed to close handle to %q", kb)
 		}
-		logger.Printf("Closed handle to %q", kb)
+		logger.Printf("Handle to %q closed", kb)
 	}()
 
 	// Go no further if an error occurred evaluating the "base" Key.
-	if baseKeyEvalResult.Err != nil {
-		return baseKeyEvalResult
+	if kb.Err() != nil {
+		return
 	}
 
 	if kb.Value() != "" {
-		foundData, _, err := kb.handle.GetBinaryValue(kb.Value())
+		foundData, _, err := kb.Handle().GetBinaryValue(kb.Value())
 		switch {
 		case errors.Is(err, registry.ErrNotExist):
 			if kb.Requirements().ValueRequired {
 				logger.Printf("Value %q not found, but marked as required.", kb)
-				return restart.RebootCheckResult{
-					Examined:       kb,
-					RebootRequired: false,
-					Err: fmt.Errorf(
-						"value %s not found, but marked as required: %w",
-						kb.Value(),
-						restart.ErrMissingValue,
-					),
-				}
+				kb.Key.runtime.err = fmt.Errorf(
+					"value %s not found, but marked as required: %w",
+					kb.Value(),
+					restart.ErrMissingValue,
+				)
+
+				return
 			}
 
 			logger.Printf("Value %q not found, but not marked as required.", kb.Value())
-			return restart.RebootCheckResult{
-				Examined:       kb,
-				RebootRequired: false,
-			}
+
+			return
 
 		case err != nil:
 
@@ -919,22 +1380,20 @@ func (kb KeyBinary) Evaluate() restart.RebootCheckResult {
 				err,
 			)
 
-			return restart.RebootCheckResult{
-				Examined:       kb,
-				RebootRequired: false,
-				Err: fmt.Errorf(
-					"unexpected error occurred while retrieving %s value %s: %w",
-					valReqLabel,
-					kb.Value(),
-					err,
-				),
-			}
+			kb.Key.runtime.err = fmt.Errorf(
+				"unexpected error occurred while retrieving %s value %s: %w",
+				valReqLabel,
+				kb.Value(),
+				err,
+			)
+
+			return
 		}
 
 		logger.Printf("Data for value %q retrieved ...", kb.Value())
 		logger.Printf("foundData: %v", foundData)
 		logger.Print("Saving retrieved data for later use ...")
-		kb.data = append(kb.data, foundData...)
+		kb.runtime.data = append(kb.runtime.data, foundData...)
 
 		if !bytes.Equal(foundData, kb.ExpectedData()) {
 			logger.Printf("%v does not match %v", foundData, kb.Data())
@@ -943,105 +1402,84 @@ func (kb KeyBinary) Evaluate() restart.RebootCheckResult {
 			// as we're considering a mismatch to be evidence. While unlikely,
 			// we may wish to include Key values in our list that we are not
 			// 100% certain indicate a need for a reboot.
-			if kb.Evidence().DataOtherThanX {
-				logger.Println("Reboot Required!")
-				return restart.RebootCheckResult{
-					Examined:       kb,
-					RebootRequired: true,
-					RebootReasons: []string{
-						fmt.Sprintf(
-							"Data for value %s for key %s matches", kb.Value(), kb,
-						),
-					},
-				}
+			if kb.ExpectedEvidence().DataOtherThanX {
+				logger.Println("Reboot Evidence found!")
+				kb.SetFoundEvidenceDataOtherThanX()
+
+				logger.Printf("Recording matched path %s", kb.Path())
+				kb.AddMatchedPath(kb.Path())
+
+				return
 			}
 		}
 	}
 
 	// If we made it this far then nothing specific to this "super type"
-	// indicated that a reboot was necessary. If the earlier base Key
-	// evaluation indicated that a reboot was needed, let's use that but with
-	// a minor change to emphasize that this super type was examined.
-	if baseKeyEvalResult.RebootRequired {
-		result := baseKeyEvalResult
-		result.Examined = kb
-
-		return result
-	}
-
-	// Otherwise, fallback to a standard "no reboot required" result.
-	return restart.RebootCheckResult{
-		Examined:       kb,
-		RebootRequired: false,
-	}
-
+	// indicated that a reboot was necessary.
 }
 
 // Data returns the actual data stored for a registry key value.
-func (ki KeyInt) Data() uint64 {
-	return ki.data
+func (ki *KeyInt) Data() uint64 {
+	return ki.runtime.data
 }
 
 // ExpectedData returns the expected data stored for a registry key value.
-func (ki KeyInt) ExpectedData() uint64 {
+func (ki *KeyInt) ExpectedData() uint64 {
 	return ki.expectedData
 }
 
 // DataDisplay provides a string representation of a registry key values's
 // actual data for display purposes.
-func (ki KeyInt) DataDisplay() string {
+func (ki *KeyInt) DataDisplay() string {
 	return fmt.Sprintf("%v", ki.Data())
 }
 
 // Evaluate performs evaluation of the embedded Key value and then applies
 // (optional) evaluation of the data field.
-func (ki KeyInt) Evaluate() restart.RebootCheckResult {
+func (ki *KeyInt) Evaluate() {
 
 	// Evaluate embedded "base" Key first where we check shared requirements
 	// and reboot evidence. We also explicitly indicate that we wish to retain
 	// a handle to the open registry key (for use here).
-	baseKeyEvalResult := ki.evaluate(false)
+	ki.evaluate(false)
 
 	defer func() {
-		logger.Printf("Closing open handle to %q", ki)
+		logger.Printf("Attempting to close handle to %q", ki)
 		if err := ki.close(); err != nil {
 			logger.Printf("Failed to close handle to open key %q", ki)
 		}
 
-		if ki.handle != nil {
+		if ki.Handle() != nil {
 			logger.Printf("Failed to close handle to %q", ki)
 		}
-		logger.Printf("Closed handle to %q", ki)
+		logger.Printf("Handle to %q closed", ki)
 	}()
 
 	// Go no further if an error occurred evaluating the "base" Key.
-	if baseKeyEvalResult.Err != nil {
-		return baseKeyEvalResult
+	if ki.Err() != nil {
+		return
 	}
 
 	if ki.Value() != "" {
 
-		foundData, _, err := ki.handle.GetIntegerValue(ki.Value())
+		foundData, _, err := ki.Handle().GetIntegerValue(ki.Value())
 		switch {
 		case errors.Is(err, registry.ErrNotExist):
 			if ki.Requirements().ValueRequired {
 				logger.Printf("Value %q not found, but marked as required.", ki)
-				return restart.RebootCheckResult{
-					Examined:       ki,
-					RebootRequired: false,
-					Err: fmt.Errorf(
-						"value %s not found, but marked as required: %w",
-						ki.Value(),
-						restart.ErrMissingValue,
-					),
-				}
+
+				ki.Key.runtime.err = fmt.Errorf(
+					"value %s not found, but marked as required: %w",
+					ki.Value(),
+					restart.ErrMissingValue,
+				)
+
+				return
 			}
 
 			logger.Printf("Value %q not found, but not marked as required.", ki.Value())
-			return restart.RebootCheckResult{
-				Examined:       ki,
-				RebootRequired: false,
-			}
+
+			return
 
 		case err != nil:
 
@@ -1057,22 +1495,20 @@ func (ki KeyInt) Evaluate() restart.RebootCheckResult {
 				err,
 			)
 
-			return restart.RebootCheckResult{
-				Examined:       ki,
-				RebootRequired: false,
-				Err: fmt.Errorf(
-					"unexpected error occurred while retrieving %s value %s: %w",
-					valReqLabel,
-					ki.Value(),
-					err,
-				),
-			}
+			ki.Key.runtime.err = fmt.Errorf(
+				"unexpected error occurred while retrieving %s value %s: %w",
+				valReqLabel,
+				ki.Value(),
+				err,
+			)
+
+			return
 		}
 
 		logger.Printf("Data for value %q retrieved ...", ki.Value())
 		logger.Printf("foundData: %v", foundData)
 		logger.Print("Saving retrieved data for later use ...")
-		ki.data = foundData
+		ki.runtime.data = foundData
 
 		if foundData != ki.ExpectedData() {
 			logger.Printf("%v does not match %v", foundData, ki.Data())
@@ -1081,104 +1517,83 @@ func (ki KeyInt) Evaluate() restart.RebootCheckResult {
 			// as we're considering a mismatch to be evidence. While unlikely,
 			// we may wish to include Key values in our list that we are not
 			// 100% certain indicate a need for a reboot.
-			if ki.Evidence().DataOtherThanX {
-				logger.Println("Reboot Required!")
-				return restart.RebootCheckResult{
-					Examined:       ki,
-					RebootRequired: true,
-					RebootReasons: []string{
-						fmt.Sprintf(
-							"Data for value %s for key %s found", ki.Value(), ki,
-						),
-					},
-				}
+			if ki.ExpectedEvidence().DataOtherThanX {
+				logger.Println("Reboot Evidence found!")
+				ki.SetFoundEvidenceDataOtherThanX()
+
+				logger.Printf("Recording matched path %s", ki.Path())
+				ki.AddMatchedPath(ki.Path())
+
+				return
 			}
 		}
 	}
 
 	// If we made it this far then nothing specific to this "super type"
-	// indicated that a reboot was necessary. If the earlier base Key
-	// evaluation indicated that a reboot was needed, let's use that but with
-	// a minor change to emphasize that this super type was examined.
-	if baseKeyEvalResult.RebootRequired {
-		result := baseKeyEvalResult
-		result.Examined = ki
-
-		return result
-	}
-
-	// Otherwise, fallback to a standard "no reboot required" result.
-	return restart.RebootCheckResult{
-		Examined:       ki,
-		RebootRequired: false,
-	}
-
+	// indicated that a reboot was necessary.
 }
 
 // Data returns the actual data stored for a registry key value.
-func (ks KeyString) Data() string {
-	return ks.data
+func (ks *KeyString) Data() string {
+	return ks.runtime.data
 }
 
 // ExpectedData returns the actual data stored for a registry key value.
-func (ks KeyString) ExpectedData() string {
+func (ks *KeyString) ExpectedData() string {
 	return ks.expectedData
 }
 
 // DataDisplay provides a string representation of a registry key values's
 // actual data for display purposes.
-func (ks KeyString) DataDisplay() string {
+func (ks *KeyString) DataDisplay() string {
 	return fmt.Sprintf("%v", ks.Data())
 }
 
 // Evaluate performs the minimum number of assertions to determine whether a
 // reboot is needed. If an error is encountered further checks are skipped.
-func (ks KeyString) Evaluate() restart.RebootCheckResult {
+func (ks *KeyString) Evaluate() {
 
 	// Evaluate embedded "base" Key first where we check shared requirements
 	// and reboot evidence. We also explicitly indicate that we wish to retain
 	// a handle to the open registry key (for use here).
-	baseKeyEvalResult := ks.evaluate(false)
+	ks.evaluate(false)
 
 	defer func() {
-		logger.Printf("Closing open handle to %q", ks)
+		logger.Printf("Attempting to close handle to %q", ks)
 		if err := ks.close(); err != nil {
 			logger.Printf("Failed to close handle to open key %q", ks)
 		}
 
-		if ks.handle != nil {
+		if ks.Handle() != nil {
 			logger.Printf("Failed to close handle to %q", ks)
 		}
-		logger.Printf("Closed handle to %q", ks)
+		logger.Printf("Handle to %q closed", ks)
 	}()
 
 	// Go no further if an error occurred evaluating the "base" Key.
-	if baseKeyEvalResult.Err != nil {
-		return baseKeyEvalResult
+	if ks.Err() != nil {
+		return
 	}
 
 	if ks.Value() != "" {
-		foundData, _, err := ks.handle.GetStringValue(ks.Value())
+		foundData, _, err := ks.Handle().GetStringValue(ks.Value())
 		switch {
 		case errors.Is(err, registry.ErrNotExist):
 			if ks.Requirements().ValueRequired {
 				logger.Printf("Value %q not found, but is marked as required.", ks.Value())
-				return restart.RebootCheckResult{
-					Examined:       ks,
-					RebootRequired: false,
-					Err: fmt.Errorf(
-						"value %s not found, but is marked as required: %w",
-						ks.Value(),
-						restart.ErrMissingValue,
-					),
-				}
+
+				ks.Key.runtime.err = fmt.Errorf(
+					"value %s not found, but is marked as required: %w",
+					ks.Value(),
+					restart.ErrMissingValue,
+				)
+
+				return
 			}
 
 			logger.Printf("Value %q not found, but not marked as required.", ks.Value())
-			return restart.RebootCheckResult{
-				Examined:       ks,
-				RebootRequired: false,
-			}
+
+			return
 
 		case err != nil:
 
@@ -1194,22 +1609,20 @@ func (ks KeyString) Evaluate() restart.RebootCheckResult {
 				err,
 			)
 
-			return restart.RebootCheckResult{
-				Examined:       ks,
-				RebootRequired: false,
-				Err: fmt.Errorf(
-					"unexpected error occurred while retrieving %s value %s: %w",
-					valReqLabel,
-					ks.Value(),
-					err,
-				),
-			}
+			ks.Key.runtime.err = fmt.Errorf(
+				"unexpected error occurred while retrieving %s value %s: %w",
+				valReqLabel,
+				ks.Value(),
+				err,
+			)
+
+			return
 		}
 
 		logger.Printf("Data for value %q retrieved ...", ks.Value())
 		logger.Printf("foundData: %v", foundData)
 		logger.Print("Saving retrieved data for later use ...")
-		ks.data = foundData
+		ks.runtime.data = foundData
 
 		if foundData != ks.ExpectedData() {
 			logger.Printf("%v does not match %v", foundData, ks.ExpectedData())
@@ -1218,52 +1631,35 @@ func (ks KeyString) Evaluate() restart.RebootCheckResult {
 			// as we're considering a mismatch to be evidence. While unlikely,
 			// we may wish to include Key values in our list that we are not
 			// 100% certain indicate a need for a reboot.
-			if ks.Evidence().DataOtherThanX {
-				logger.Println("Reboot Required!")
-				return restart.RebootCheckResult{
-					Examined:       ks,
-					RebootRequired: true,
-					RebootReasons: []string{
-						fmt.Sprintf(
-							"Data for value %s for key %s found", ks.Value(), ks,
-						),
-					},
-				}
+			if ks.ExpectedEvidence().DataOtherThanX {
+				logger.Println("Reboot Evidence found!")
+				ks.SetFoundEvidenceDataOtherThanX()
+
+				logger.Printf("Recording matched path %s", ks.Path())
+				ks.AddMatchedPath(ks.Path())
+
+				return
 			}
 		}
 	}
 
 	// If we made it this far then nothing specific to this "super type"
-	// indicated that a reboot was necessary. If the earlier base Key
-	// evaluation indicated that a reboot was needed, let's use that but with
-	// a minor change to emphasize that this super type was examined.
-	if baseKeyEvalResult.RebootRequired {
-		result := baseKeyEvalResult
-		result.Examined = ks
-
-		return result
-	}
-
-	// Otherwise, fallback to a standard "no reboot required" result.
-	return restart.RebootCheckResult{
-		Examined:       ks,
-		RebootRequired: false,
-	}
+	// indicated that a reboot was necessary.
 }
 
 // Data returns the actual data stored for a registry key value.
-func (ks KeyStrings) Data() []string {
-	return ks.data
+func (ks *KeyStrings) Data() []string {
+	return ks.runtime.data
 }
 
 // ExpectedData returns the expected data stored for a registry key value.
-func (ks KeyStrings) ExpectedData() []string {
+func (ks *KeyStrings) ExpectedData() []string {
 	return ks.expectedData
 }
 
 // DataDisplay provides a string representation of a registry key values's
 // actual data for display purposes.
-func (ks KeyStrings) DataDisplay() string {
+func (ks *KeyStrings) DataDisplay() string {
 	logger.Printf("Called for %+v", ks)
 	return strings.Join(ks.Data(), ", ")
 }
@@ -1272,60 +1668,129 @@ func (ks KeyStrings) DataDisplay() string {
 // supplied. If the reboot evidence markers for the Key type are not matched,
 // these  (also optional) set of evidence markers are then checked to
 // determine if a reboot is required.
-func (ks KeyStrings) AdditionalEvidence() KeyStringsRebootEvidence {
+func (ks *KeyStrings) AdditionalEvidence() KeyStringsRebootEvidence {
 	return ks.additionalEvidence
+}
+
+// RebootReasons returns a list of the reasons associated with the evidence
+// found for an evaluation that indicates a reboot is needed.
+func (ks *KeyStrings) RebootReasons() []string {
+
+	// Gather existing reasons for a reboot so that we can (potentially)
+	// expand on them with additional reasons.
+	reasons := ks.Key.RebootReasons()
+
+	if ks.runtime.evidenceFound.ValueFound {
+		switch {
+		case ks.runtime.searchTermMatched != "":
+			reasons = append(reasons, fmt.Sprintf(
+				"Found match %s in data for value %s of key %s",
+				ks.runtime.searchTermMatched,
+				ks.Value(),
+				ks,
+			))
+		default:
+			logger.Print("BUG: searchTerm should have been recorded for a single value match")
+			reasons = append(reasons, fmt.Sprintf(
+				"Found match in data for value %s of key %s",
+				ks.Value(),
+				ks,
+			))
+		}
+	}
+
+	if ks.runtime.evidenceFound.AllValuesFound {
+		reasons = append(reasons, fmt.Sprintf(
+			"All specified strings found in data for value %s of key %s",
+			ks.Value(),
+			ks,
+		))
+	}
+
+	return reasons
+}
+
+// SetFoundEvidenceValueFound records that the ValueFound reboot evidence was
+// found.
+func (ks *KeyStrings) SetFoundEvidenceValueFound() {
+	logger.Printf("Recording that the ValueFound evidence was found for %q", ks)
+	ks.runtime.evidenceFound.ValueFound = true
+}
+
+// SetFoundEvidenceAllValuesFound records that the AllValuesFound reboot
+// evidence was found.
+func (ks *KeyStrings) SetFoundEvidenceAllValuesFound() {
+	logger.Printf("Recording that the AllValuesFound evidence was found for %q", ks)
+	ks.runtime.evidenceFound.AllValuesFound = true
+}
+
+// HasEvidence indicates whether any evidence was found for an assertion
+// evaluation.
+func (ks *KeyStrings) HasEvidence() bool {
+
+	// Check enclosed Key first.
+	if ks.Key.HasEvidence() {
+		return true
+	}
+
+	if ks.runtime.evidenceFound.ValueFound {
+		return true
+	}
+
+	if ks.runtime.evidenceFound.AllValuesFound {
+		return true
+	}
+
+	return false
 }
 
 // Evaluate performs evaluation of the embedded Key value and then applies
 // (optional) evaluation of the data field to determine whether any of the
 // specified strings are found in the retrieved key value data. Any single
 // match indicates a reboot is needed.
-func (ks KeyStrings) Evaluate() restart.RebootCheckResult {
+func (ks *KeyStrings) Evaluate() {
 
 	// Evaluate embedded "base" Key first where we check shared requirements
 	// and reboot evidence. We also explicitly indicate that we wish to retain
 	// a handle to the open registry key (for use here).
-	baseKeyEvalResult := ks.evaluate(false)
+	ks.evaluate(false)
 
 	defer func() {
-		logger.Printf("Closing open handle to %q", ks)
+		logger.Printf("Attempting to close handle to %q", ks)
 		if err := ks.close(); err != nil {
 			logger.Printf("Failed to close handle to open key %q", ks)
 		}
 
-		if ks.handle != nil {
+		if ks.Handle() != nil {
 			logger.Printf("Failed to close handle to %q", ks)
 		}
-		logger.Printf("Closed handle to %q", ks)
+		logger.Printf("Handle to %q closed", ks)
 	}()
 
 	// Go no further if an error occurred evaluating the "base" Key.
-	if baseKeyEvalResult.Err != nil {
-		return baseKeyEvalResult
+	if ks.Err() != nil {
+		return
 	}
 
 	if ks.Value() != "" {
-		foundData, _, err := ks.handle.GetStringsValue(ks.Value())
+		foundData, _, err := ks.Handle().GetStringsValue(ks.Value())
 		switch {
 		case errors.Is(err, registry.ErrNotExist):
 			if ks.Requirements().ValueRequired {
 				logger.Printf("Value %q not found, but marked as required.", ks.Value())
-				return restart.RebootCheckResult{
-					Examined:       ks,
-					RebootRequired: false,
-					Err: fmt.Errorf(
-						"value %s not found, but marked as required: %w",
-						ks.Value(),
-						restart.ErrMissingValue,
-					),
-				}
+
+				ks.Key.runtime.err = fmt.Errorf(
+					"value %s not found, but marked as required: %w",
+					ks.Value(),
+					restart.ErrMissingValue,
+				)
+
+				return
 			}
 
 			logger.Printf("Value %q not found, but not marked as required.", ks.Value())
-			return restart.RebootCheckResult{
-				Examined:       ks,
-				RebootRequired: false,
-			}
+
+			return
 
 		case err != nil:
 
@@ -1341,23 +1806,21 @@ func (ks KeyStrings) Evaluate() restart.RebootCheckResult {
 				err,
 			)
 
-			return restart.RebootCheckResult{
-				Examined:       ks,
-				RebootRequired: false,
-				Err: fmt.Errorf(
-					"unexpected error occurred while retrieving %s value %s: %w",
-					valReqLabel,
-					ks.Value(),
-					err,
-				),
-			}
+			ks.Key.runtime.err = fmt.Errorf(
+				"unexpected error occurred while retrieving %s value %s: %w",
+				valReqLabel,
+				ks.Value(),
+				err,
+			)
+
+			return
 		}
 
 		logger.Printf("Data for value %q retrieved ...", ks.Value())
 		logger.Printf("foundData: %v", foundData)
 		logger.Printf("searchTerms: %v", ks.Data())
 		logger.Print("Saving retrieved data for later use ...")
-		ks.data = append(ks.data, foundData...)
+		ks.runtime.data = append(ks.runtime.data, foundData...)
 
 		var valuesFound int
 		for _, searchTerm := range ks.ExpectedData() {
@@ -1365,26 +1828,23 @@ func (ks KeyStrings) Evaluate() restart.RebootCheckResult {
 			case textutils.InList(searchTerm, foundData, true):
 				valuesFound++
 
+				ks.runtime.searchTermMatched = searchTerm
+
 				logger.Printf("Found match %q within %v", searchTerm, ks.Data())
 
 				// If we are just looking for one value, go ahead and return
 				// early without checking for other matches.
 				if ks.AdditionalEvidence().ValueFound {
+					logger.Println("Reboot Evidence found!")
+					ks.SetFoundEvidenceValueFound()
 
-					logger.Println("Reboot Required!")
+					logger.Printf("Recording matched path %s", ks.Path())
 
-					return restart.RebootCheckResult{
-						Examined:       ks,
-						RebootRequired: true,
-						RebootReasons: []string{
-							fmt.Sprintf(
-								"Found match %s in data for value %s of key %s",
-								searchTerm,
-								ks.Value(),
-								ks,
-							),
-						},
-					}
+					// NOTE: If we were not deduping collected path values
+					// this would likely cause a bug.
+					ks.AddMatchedPath(ks.Path())
+
+					return
 				}
 
 			default:
@@ -1395,50 +1855,30 @@ func (ks KeyStrings) Evaluate() restart.RebootCheckResult {
 		if ks.AdditionalEvidence().AllValuesFound {
 			if valuesFound == len(ks.ExpectedData()) {
 				// 100% match: All specified string values were found.
-				return restart.RebootCheckResult{
-					Examined:       ks,
-					RebootRequired: true,
-					RebootReasons: []string{
-						fmt.Sprintf(
-							"All specified strings found in data for value %s of key %s",
-							ks.Value(),
-							ks,
-						),
-					},
-				}
+				logger.Println("Reboot Evidence found!")
+				ks.SetFoundEvidenceAllValuesFound()
 
+				logger.Printf("Recording matched path %s", ks.Path())
+				ks.AddMatchedPath(ks.Path())
+
+				return
 			}
 		}
 
 	}
 
 	// If we made it this far then nothing specific to this "super type"
-	// indicated that a reboot was necessary. If the earlier base Key
-	// evaluation indicated that a reboot was needed, let's use that but with
-	// a minor change to emphasize that this super type was examined.
-	if baseKeyEvalResult.RebootRequired {
-		result := baseKeyEvalResult
-		result.Examined = ks
-
-		return result
-	}
-
-	// Otherwise, fallback to a standard "no reboot required" result.
-	return restart.RebootCheckResult{
-		Examined:       ks,
-		RebootRequired: false,
-	}
-
+	// indicated that a reboot was necessary.
 }
 
 // Data returns the actual data stores for both registry key values.
-func (kp KeyPair) Data() [][]byte {
-	return kp.data
+func (kp *KeyPair) Data() [][]byte {
+	return kp.runtime.data
 }
 
 // DataDisplay provides a string representation of the data for both registry
 // key values.
-func (kp KeyPair) DataDisplay() string {
+func (kp *KeyPair) DataDisplay() string {
 
 	// Don't panic, it is OK to not have stored data.
 	if len(kp.Data()) != 2 {
@@ -1467,8 +1907,105 @@ func (kp KeyPair) DataDisplay() string {
 // supplied. If the reboot evidence markers for the Key type are not matched,
 // these  (also optional) set of evidence markers are then checked to
 // determine if a reboot is required.
-func (kp KeyPair) AdditionalEvidence() KeyPairRebootEvidence {
+func (kp *KeyPair) AdditionalEvidence() KeyPairRebootEvidence {
 	return kp.additionalEvidence
+}
+
+// RebootReasons returns a list of the reasons associated with the evidence
+// found for an evaluation that indicates a reboot is needed.
+func (kp *KeyPair) RebootReasons() []string {
+
+	// Gather existing reasons for a reboot so that we can (potentially)
+	// expand on them with additional reasons.
+	//
+	// The usual scenario is one reason per evidence match per Key, so we opt
+	// to initialize with two slots, presumably one reason per evaluated Key.
+	reasons := make([]string, 0, len(kp.Keys))
+	for _, key := range kp.Keys {
+		reasons = append(reasons, key.RebootReasons()...)
+	}
+
+	if kp.runtime.evidenceFound.PairedValuesDoNotMatch {
+		fqpath1 := fmt.Sprintf(`%s\%s`, kp.Keys[0].Path(), kp.Keys[0].Value())
+		fqpath2 := fmt.Sprintf(`%s\%s`, kp.Keys[1].Path(), kp.Keys[1].Value())
+
+		reasons = append(reasons, fmt.Sprintf(
+			"Data mismatch for %s and %s",
+			fqpath1,
+			fqpath2,
+		))
+	}
+
+	return reasons
+
+}
+
+// SetFoundEvidencePairedValuesDoNotMatch records that the
+// PairedValuesDoNotMatch reboot evidence was found.
+func (kp *KeyPair) SetFoundEvidencePairedValuesDoNotMatch() {
+	logger.Printf("Recording that the PairedValuesDoNotMatch evidence was found for %q", kp)
+	kp.runtime.evidenceFound.PairedValuesDoNotMatch = true
+}
+
+// AddMatchedPath records given paths as successful assertion matches for each
+// enclosed Key value. Duplicate entries are ignored.
+func (kp *KeyPair) AddMatchedPath(paths ...string) {
+	for i := range kp.Keys {
+		kp.Keys[i].AddMatchedPath(paths...)
+	}
+}
+
+// MatchedPaths returns all recorded paths from successful assertion matches
+// for each enclosed Key value.
+func (kp *KeyPair) MatchedPaths() restart.MatchedPaths {
+	matchedPaths := make(restart.MatchedPaths, 0,
+		len(kp.Keys[0].runtime.pathsMatched)+
+			len(kp.Keys[1].runtime.pathsMatched),
+	)
+
+	for _, key := range kp.Keys {
+		matchedPaths = append(matchedPaths, key.MatchedPaths()...)
+	}
+
+	return matchedPaths
+}
+
+// Err exposes the first underlying error (if any) from enclosed Keys. Whether
+// the Key has been marked as ignored is not considered.
+//
+// TODO: Should we handle this differently? Based on the current design we
+// fail early; if processing the first Key fails there won't be an error
+// recorded for the second Key. This *should* mean that the approach of
+// returning the first error is stable ...
+func (kp *KeyPair) Err() error {
+	if kp.Keys[0].Err() != nil {
+		return kp.Keys[0].Err()
+	}
+
+	if kp.Keys[1].Err() != nil {
+		return kp.Keys[1].Err()
+	}
+
+	return nil
+}
+
+// HasEvidence indicates whether any evidence was found for an assertion
+// evaluation.
+func (kp *KeyPair) HasEvidence() bool {
+	// Check enclosed Keys first.
+	for _, key := range kp.Keys {
+		if key.HasEvidence() {
+			return true
+		}
+	}
+
+	//	if kp.runtime.evidenceFound.PairedValuesDoNotMatch {
+	//		return true
+	//	}
+	//
+	// return false
+
+	return kp.runtime.evidenceFound.PairedValuesDoNotMatch
 }
 
 // Evaluate performs an evaluation of the key pair to determine whether a
@@ -1482,7 +2019,7 @@ func (kp KeyPair) AdditionalEvidence() KeyPairRebootEvidence {
 // present. Key values that are required to be present for each key in the
 // pair is the primary focus as supporting that scenario is necessary for the
 // initial implementation.
-func (kp KeyPair) Evaluate() restart.RebootCheckResult {
+func (kp *KeyPair) Evaluate() {
 
 	foundData := make([][]byte, 0, 2)
 
@@ -1491,24 +2028,19 @@ func (kp KeyPair) Evaluate() restart.RebootCheckResult {
 		// Evaluate embedded "base" Key first where we check shared
 		// requirements and reboot evidence. We also explicitly indicate that
 		// we wish to retain a handle to the open registry key (for use here).
-		baseKeyEvalResult := key.evaluate(false)
+		key.evaluate(false)
 
-		defer func() {
-			logger.Printf("Closing open handle to %q", key)
-			if err := key.close(); err != nil {
-				logger.Printf("Failed to close handle to open key %q", key)
+		defer func(k *Key) {
+			logger.Printf("Attempting to close handle to %q", k)
+			if err := k.close(); err != nil {
+				logger.Printf("Failed to close handle to open key %q", k)
 			}
 
-			if key.handle != nil {
-				logger.Printf("Failed to close handle to %q", key)
+			if key.Handle() != nil {
+				logger.Printf("Failed to close handle to %q", k)
 			}
-			logger.Printf("Closed handle to %q", key)
-		}()
-
-		// Go no further if an error occurred evaluating the "base" Key.
-		if baseKeyEvalResult.Err != nil {
-			return baseKeyEvalResult
-		}
+			logger.Printf("Handle to %q closed", k)
+		}(key)
 
 		// Go no further if an error occurred evaluating the "base" Key or if
 		// that evaluation was sufficient to determine a reboot is needed.
@@ -1516,47 +2048,37 @@ func (kp KeyPair) Evaluate() restart.RebootCheckResult {
 		// Unlike other Key* types, this type is not meant to collect the
 		// actual data registry values for later display purposes, only make
 		// comparisons if requested. So, unlike the other Key* types, it is
-		// sufficient to use only the base Key evaluation results if a reboot
-		// was found to be required or an error occurred.
-		if baseKeyEvalResult.Err != nil || baseKeyEvalResult.RebootRequired {
-			return baseKeyEvalResult
+		// sufficient to use only the base Key evaluation results if an error
+		// occurred or a reboot was found to be required.
+		if key.Err() != nil || key.HasEvidence() {
+			return
 		}
 
 		// Exit early if we are not evaluating whether the data for each
 		// registry key value matches.
 		if !kp.AdditionalEvidence().PairedValuesDoNotMatch {
-			return restart.RebootCheckResult{
-				Examined:       kp,
-				RebootRequired: false,
-			}
+			return
 		}
 
 		if key.Value() != "" {
-			bufSize, valType, err := key.handle.GetValue(key.Value(), nil)
+			bufSize, valType, err := key.Handle().GetValue(key.Value(), nil)
 			switch {
 			case errors.Is(err, registry.ErrNotExist):
 				if key.Requirements().ValueRequired {
 					logger.Printf("Value %q not found, but marked as required.", key.Value())
-					return restart.RebootCheckResult{
-						// TODO: Should we report that we examined the current key
-						// we are evaluating or the KeyPair instead?
-						Examined:       kp,
-						RebootRequired: false,
-						Err: fmt.Errorf(
-							"value %s not found, but marked as required: %w",
-							key.Value(),
-							restart.ErrMissingValue,
-						),
-					}
+
+					key.runtime.err = fmt.Errorf(
+						"value %s not found, but marked as required: %w",
+						key.Value(),
+						restart.ErrMissingValue,
+					)
+
+					return
 				}
 
 				logger.Printf("Value %q not found, but not marked as required.", key.Value())
-				return restart.RebootCheckResult{
-					// TODO: Should we report that we examined the current key we
-					// are evaluating or the KeyPair instead?
-					Examined:       kp,
-					RebootRequired: false,
-				}
+
+				return
 
 			case err != nil:
 
@@ -1572,18 +2094,14 @@ func (kp KeyPair) Evaluate() restart.RebootCheckResult {
 					err,
 				)
 
-				return restart.RebootCheckResult{
-					// TODO: Should we report that we examined the current key we
-					// are evaluating or the KeyPair instead?
-					Examined:       kp,
-					RebootRequired: false,
-					Err: fmt.Errorf(
-						"unexpected error occurred while retrieving %s value %s: %w",
-						valReqLabel,
-						key.Value(),
-						err,
-					),
-				}
+				key.runtime.err = fmt.Errorf(
+					"unexpected error occurred while retrieving %s value %s: %w",
+					valReqLabel,
+					key.Value(),
+					err,
+				)
+
+				return
 			}
 
 			logger.Printf(
@@ -1594,7 +2112,7 @@ func (kp KeyPair) Evaluate() restart.RebootCheckResult {
 			)
 
 			buffer := make([]byte, bufSize)
-			_, _, err = key.handle.GetValue(key.Value(), buffer)
+			_, _, err = key.Handle().GetValue(key.Value(), buffer)
 
 			// We intentionally use simpler error handling here since we just
 			// evaluated whether the registry key value is required to be
@@ -1605,34 +2123,28 @@ func (kp KeyPair) Evaluate() restart.RebootCheckResult {
 			//
 			// TODO: Worth the complexity to implement a retry?
 			if err != nil {
-				return restart.RebootCheckResult{
-					// TODO: Should we report that we examined the current key we
-					// are evaluating or the KeyPair instead?
-					Examined:       kp,
-					RebootRequired: false,
-					Err: fmt.Errorf(
-						"failed to retrieve data for value %s: %w",
-						key.Value(),
-						err,
-					),
-				}
+				key.runtime.err = fmt.Errorf(
+					"failed to retrieve data for value %s: %w",
+					key.Value(),
+					err,
+				)
 
+				return
 			}
+
 			logger.Printf("data in raw/hex format: % x", buffer)
 			logger.Printf("data in string format: %s", buffer)
 			foundData = append(foundData, buffer)
-
 		}
 	}
 
 	// If data was collected, evaluate it.
 	if len(foundData) > 0 {
+		logger.Print("Saving retrieved data for later use ...")
 
 		// Make a copy of the retrieved data for later use.
-		kp.data = make([][]byte, 2)
-
-		logger.Print("Saving retrieved data for later use ...")
-		copied := copy(kp.data, foundData)
+		kp.runtime.data = make([][]byte, 2)
+		copied := copy(kp.runtime.data, foundData)
 
 		if copied != len(foundData) {
 			panic(fmt.Sprintf(
@@ -1649,40 +2161,37 @@ func (kp KeyPair) Evaluate() restart.RebootCheckResult {
 
 		if !bytes.Equal(foundData[0], foundData[1]) {
 			logger.Printf("Data for %q does not equal %q", fqpath1, fqpath2)
-			logger.Println("Reboot Required!")
+			logger.Println("Reboot Evidence found!")
+			kp.SetFoundEvidencePairedValuesDoNotMatch()
 
-			return restart.RebootCheckResult{
-				Examined:       kp,
-				RebootRequired: true,
-				RebootReasons: []string{
-					fmt.Sprintf(
-						"Data mismatch for %s and %s",
-						fqpath1,
-						fqpath2,
-					),
-				},
-			}
+			logger.Printf("Recording matched path %s", kp.Keys[0].Path())
+			logger.Printf("Recording matched path %s", kp.Keys[1].Path())
+			kp.AddMatchedPath(kp.Keys[0].Path(), kp.Keys[1].Path())
+
+			return
 		}
 
 		logger.Printf("Data equal for %q and %q", fqpath1, fqpath2)
-
 	}
 
 	// If we made it this far then nothing specific to this enclosing type
-	// indicated that a reboot was necessary. Because this is not a "super
-	// type" that embeds the base Key type, we cannot use a base Key
-	// evaluation as a fallback state and so we explicitly indicate that per
-	// this evaluation no reboot is required.
-	return restart.RebootCheckResult{
-		Examined:       kp,
-		RebootRequired: false,
-	}
+	// indicated that a reboot was necessary.
+}
 
+// Filter uses the list of specified ignore patterns to mark each matched path
+// for the enclosed Keys as ignored *IF* a match is found. If no matched paths
+// are recorded Filter makes no changes. Filter should be called before
+// performing final state evaluation.
+func (kp *KeyPair) Filter(ignorePatterns []string) {
+
+	for i := range kp.Keys {
+		kp.Keys[i].Filter(ignorePatterns)
+	}
 }
 
 // Validate performs basic validation. An error is returned for any validation
 // failures.
-func (kp KeyPair) Validate() error {
+func (kp *KeyPair) Validate() error {
 
 	if len(kp.Keys) != 2 {
 		return fmt.Errorf(
@@ -1705,7 +2214,7 @@ func (kp KeyPair) Validate() error {
 	return nil
 }
 
-func (kp KeyPair) String() string {
+func (kp *KeyPair) String() string {
 
 	keys := make([]string, 0, len(kp.Keys))
 
@@ -1720,6 +2229,66 @@ func (kp KeyPair) String() string {
 	}
 
 	return strings.Join(keys, ", ")
+}
+
+// Ignored indicates whether both Keys in the set have been marked as ignored.
+func (kp *KeyPair) Ignored() bool {
+	if kp.Keys[0].Ignored() && kp.Keys[1].Ignored() {
+		return true
+	}
+
+	return false
+}
+
+// RebootRequired indicates whether an evaluation of both Keys in the set
+// determined that a reboot is needed. If both Keys have been marked as
+// ignored (all recorded matched paths marked as ignored) the need for a
+// reboot is not indicated.
+func (kp *KeyPair) RebootRequired() bool {
+	if !kp.Ignored() && kp.HasEvidence() {
+		return true
+	}
+
+	return false
+}
+
+// IsCriticalState indicates whether an evaluation determined that the KeyPair
+// is in a CRITICAL state. Whether the KeyPair has been marked as Ignored is
+// considered. The caller is responsible for filtering the collection prior to
+// calling this method.
+func (kp *KeyPair) IsCriticalState() bool {
+	for _, key := range kp.Keys {
+		if key.IsCriticalState() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsWarningState indicates whether an evaluation determined that the KeyPair
+// is in a WARNING state. Whether the KeyPair has been marked as Ignored is
+// considered. The caller is responsible for filtering the collection prior to
+// calling this method.
+func (kp *KeyPair) IsWarningState() bool {
+	return !kp.Ignored() && kp.RebootRequired()
+}
+
+// IsOKState indicates whether an evaluation determined that the KeyPair is in
+// an OK state. Whether the KeyPair has been marked as Ignored is considered.
+// The caller is responsible for filtering the collection prior to calling
+// this method. TODO: Cleanup the logic.
+func (kp *KeyPair) IsOKState() bool {
+	switch {
+	case kp.Ignored():
+		return true
+	case !kp.Ignored() && kp.RebootRequired():
+		return false
+	case !kp.Ignored() && kp.Err() != nil:
+		return false
+	default:
+		return true
+	}
 }
 
 // getType returns a string description for the given registry key value type.
@@ -1786,3 +2355,47 @@ func getRootKeyName(key registry.Key) string {
 
 	return keyName
 }
+
+// func matchedPathsFromPathStrings(rootPath string, pathStrings []string) restart.MatchedPaths {
+// 	matchedPaths := make(restart.MatchedPaths, 0, len(pathStrings))
+//
+// 	for _, path := range sort.StringSlice(pathStrings) {
+//
+// 		matchedPath := MatchedPath{
+// 			root:     rootPath,
+// 			relative: path,
+// 			base:     filepath.Base(path),
+// 		}
+//
+// 		matchedPaths = append(matchedPaths, matchedPath)
+// 	}
+//
+// 	return matchedPaths
+//
+// }
+
+// func matchedPathFromPathString(rootPath string, pathString string) restart.MatchedPath {
+//
+// 	relPath, err := filepath.Rel(rootPath, pathString)
+// 	switch {
+// 	case err != nil:
+// 		logger.Printf("Failed to obtain relative path for %q using %q as the base", pathString, rootPath)
+// 		logger.Printf("Falling back to using %q as relative path", pathString)
+// 		relPath = pathString
+// 	default:
+// 		logger.Printf(
+// 			"Successfully resolved %q as relative path of %q using %q as root path",
+// 			relPath,
+// 			pathString,
+// 			rootPath,
+// 		)
+// 	}
+//
+// 	matchedPath := MatchedPath{
+// 		root:     rootPath,
+// 		relative: relPath,
+// 		base:     filepath.Base(pathString),
+// 	}
+//
+// 	return matchedPath
+// }

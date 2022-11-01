@@ -117,6 +117,7 @@ func main() {
 	allAssertions := make(restart.RebootRequiredAsserters, 0, len(registryAssertions)+len(fileAssertions))
 	allAssertions = append(allAssertions, registryAssertions...)
 	allAssertions = append(allAssertions, fileAssertions...)
+
 	log.Debug().
 		Int("all_assertions", len(allAssertions)).
 		Msg("All assertions retrieved")
@@ -136,27 +137,29 @@ func main() {
 	}
 
 	log.Debug().Msg("Evaluating reboot assertions")
-	results := make(restart.RebootCheckResults, 0, len(allAssertions))
-	for _, assertion := range allAssertions {
-		result := assertion.Evaluate()
-		results = append(results, result)
+	allAssertions.Evaluate()
 
-		if result.Err != nil {
-			switch {
-			case errors.Is(result.Err, restart.ErrMissingOptionalItem):
-				log.Debug().
-					// Err(result.Err).
-					Str("assertion", assertion.String()).
-					Msg("Optional reboot assertion not found")
-			default:
-				log.Error().
-					Err(result.Err).
-					Str("assertion", assertion.String()).
-					Msg("Error occurred evaluating required reboot assertion")
-			}
+	log.Debug().Msg("Retrieving default registry reboot assertions")
+	registryignorePatterns := registry.DefaultRebootRequiredIgnoredPaths()
+	log.Debug().
+		Int("registry_ignore_patterns", len(registryignorePatterns)).
+		Msg("Retrieved default registry ignore path patterns")
 
-		}
-	}
+	log.Debug().Msg("Retrieving default file reboot assertions")
+	fileignorePatterns := files.DefaultRebootRequiredIgnoredPaths()
+	log.Debug().
+		Int("file_ignore_patterns", len(fileignorePatterns)).
+		Msg("Retrieved default file ignore path patterns")
+
+	log.Debug().Msg("Finished retrieving reboot assertions")
+
+	allIgnorePatterns := make([]string, 0, len(registryignorePatterns)+len(fileignorePatterns))
+	allIgnorePatterns = append(allIgnorePatterns, registryignorePatterns...)
+	allIgnorePatterns = append(allIgnorePatterns, fileignorePatterns...)
+
+	log.Debug().Msg("Filtering reboot assertions")
+
+	allAssertions.Filter(allIgnorePatterns)
 
 	pd := []nagios.PerformanceData{
 		// The `time` (runtime) metric is appended at plugin exit, so do not
@@ -175,40 +178,66 @@ func main() {
 		},
 		{
 			Label: "matched_assertions",
-			Value: fmt.Sprintf("%d", results.RebootAssertionsMatched()),
+			Value: fmt.Sprintf("%d", allAssertions.NumMatched()),
+		},
+		{
+			Label: "ignored_assertions",
+			Value: fmt.Sprintf("%d", allAssertions.NumIgnored()),
 		},
 		{
 			Label: "errors",
-			Value: fmt.Sprintf("%d", results.NumErrors()),
+			Value: fmt.Sprintf("%d", allAssertions.NumErrors(false)),
 		},
 	}
 
 	switch {
-	case !results.IsOKState():
+	case !allAssertions.IsOKState():
 
-		if results.RebootRequired() {
+		log.Debug().Msg("case !allAssertions.IsOKState() triggered")
+
+		if allAssertions.RebootRequired() {
+
+			// If emitted by default NSClient++ will send back stderr and
+			// stdout blended together.
+			//
+			// The standard deployment procedure (if emitting this at Error
+			// level) will likely become explicitly disabling logging entirely
+			// in order to avoid this message displaying within the Nagios web
+			// UI and notifications by default.
+			//
+			// Because it would be beneficial to have logging enabled by
+			// default and left on the sysadmin, we need to ensure that only
+			// "real" issues are emitted by default.
 			log.Debug().
-				Int("num_reboot_assertions_applied", results.RebootAssertionsApplied()).
-				Int("num_reboot_assertions_matched", results.RebootAssertionsMatched()).
+				Int("assertions_applied", allAssertions.NumApplied()).
+				Int("assertions_matched", allAssertions.NumMatched()).
+				Int("assertions_ignored", allAssertions.NumIgnored()).
 				Msg("Reboot assertions matched, reboot needed")
 
 			nagiosExitState.AddError(restart.ErrRebootRequired)
 		}
 
-		// Include all errors collected during evaluation.
-		if results.HasErrors() {
+		log.Debug().Msg("allAssertions.RebootRequired() NOT triggered")
+
+		// Include all errors collected during evaluation. Don't include
+		// errors from assertions marked as ignored.
+		if allAssertions.HasErrors(false) {
 			log.Error().
-				Int("num_reboot_assertions_applied", results.RebootAssertionsApplied()).
-				Int("num_errors", results.NumErrors()).
+				Int("assertions_applied", allAssertions.NumApplied()).
+				Int("assertions_matched", allAssertions.NumMatched()).
+				Int("assertions_ignored", allAssertions.NumIgnored()).
+				Int("errors", allAssertions.NumErrors(false)).
 				Msg("Errors encountered evaluating need for reboot")
 
-			nagiosExitState.AddError(results.Errs()...)
+			nagiosExitState.AddError(allAssertions.Errs(false)...)
 		}
 
-		nagiosExitState.ExitStatusCode = results.ServiceState().ExitCode
+		log.Debug().Msg("allAssertions.HasErrors(false) NOT triggered")
 
-		nagiosExitState.ServiceOutput = reports.CheckRebootOneLineSummary(results)
-		nagiosExitState.LongServiceOutput = reports.CheckRebootReport(results, cfg.VerboseOutput)
+		nagiosExitState.ExitStatusCode = allAssertions.ServiceState().ExitCode
+
+		nagiosExitState.ServiceOutput = reports.CheckRebootOneLineSummary(allAssertions, false)
+		nagiosExitState.LongServiceOutput = reports.CheckRebootReport(allAssertions, cfg.ShowIgnored, cfg.VerboseOutput)
 
 		if err := nagiosExitState.AddPerfData(false, pd...); err != nil {
 			log.Error().
@@ -218,18 +247,19 @@ func main() {
 
 		return
 
-	// No errors, no reboot needed.
 	default:
+
+		log.Debug().Msg("default case for overall plugin state triggered")
+
 		log.Debug().
-			Int("num_reboot_assertions_applied", results.RebootAssertionsApplied()).
-			Int("num_reboot_assertions_matched", results.RebootAssertionsMatched()).
-			// Msg("No (non-ignored) reboot assertions matched")
-			Msg("No reboot assertions matched")
+			Int("num_reboot_assertions_applied", allAssertions.NumApplied()).
+			Int("num_reboot_assertions_matched", allAssertions.NumMatched()).
+			Msg("No (non-ignored) reboot assertions matched")
 
-		nagiosExitState.ServiceOutput = reports.CheckRebootOneLineSummary(results)
-		nagiosExitState.LongServiceOutput = reports.CheckRebootReport(results, cfg.VerboseOutput)
+		nagiosExitState.ServiceOutput = reports.CheckRebootOneLineSummary(allAssertions, false)
+		nagiosExitState.LongServiceOutput = reports.CheckRebootReport(allAssertions, cfg.ShowIgnored, cfg.VerboseOutput)
 
-		nagiosExitState.ExitStatusCode = results.ServiceState().ExitCode
+		nagiosExitState.ExitStatusCode = allAssertions.ServiceState().ExitCode
 
 		if err := nagiosExitState.AddPerfData(false, pd...); err != nil {
 			log.Error().

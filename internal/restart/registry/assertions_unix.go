@@ -16,6 +16,14 @@ import (
 	"github.com/atc0005/check-restart/internal/restart"
 )
 
+// DefaultRebootRequiredIgnoredPaths provides the default collection of paths
+// for registry related reboot required assertions that should be ignored.
+func DefaultRebootRequiredIgnoredPaths() []string {
+
+	logger.Println("WARNING: This tool is not supported for non-Windows systems!")
+	return []string{}
+}
+
 // DefaultRebootRequiredAssertions provides the default collection of registry
 // related reboot required assertions.
 func DefaultRebootRequiredAssertions() restart.RebootRequiredAsserters {

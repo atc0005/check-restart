@@ -63,6 +63,9 @@ func (c *Config) handleFlagsConfig(appType AppType) {
 		flag.BoolVar(&c.VerboseOutput, VerboseFlagShort, defaultVerboseOutput, verboseOutputFlagHelp+" (shorthand)")
 		flag.BoolVar(&c.VerboseOutput, VerboseFlagLong, defaultVerboseOutput, verboseOutputFlagHelp)
 
+		flag.BoolVar(&c.ShowIgnored, ShowIgnoredFlagShort, defaultShowIgnored, showIgnoredFlagHelp+" (shorthand)")
+		flag.BoolVar(&c.ShowIgnored, ShowIgnoredFlagLong, defaultShowIgnored, showIgnoredFlagHelp)
+
 	case appType.Inspecter:
 
 		// Override the default Help output with a brief lead-in summary of
