@@ -37,7 +37,7 @@ const (
 	TimeoutFlagLong      string = "timeout"
 	TimeoutFlagShort     string = "t"
 	ShowIgnoredFlagLong  string = "show-ignored"
-	ShowIgnoredFlagShort string = "li"
+	ShowIgnoredFlagShort string = "si"
 	LogLevelFlagLong     string = "log-level"
 	LogLevelFlagShort    string = "ll"
 )
