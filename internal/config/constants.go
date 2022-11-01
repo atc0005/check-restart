@@ -20,6 +20,7 @@ const (
 	logLevelFlagHelp      string = "Sets log level."
 	brandingFlagHelp      string = "Toggles emission of branding details with plugin status details. This output is disabled by default."
 	verboseOutputFlagHelp string = "Toggles emission of detailed output. This level of output is disabled by default."
+	showIgnoredFlagHelp   string = "Toggles emission of ignored assertion matches in the final plugin output. This is disabled by default."
 )
 
 // Flag names for consistent references. Exported so that they're available
@@ -29,14 +30,16 @@ const (
 	// HelpFlagShort     string = "h"
 	// VersionFlagShort  string = "v"
 
-	VersionFlagLong   string = "version"
-	VerboseFlagLong   string = "verbose"
-	VerboseFlagShort  string = "v"
-	BrandingFlag      string = "branding"
-	TimeoutFlagLong   string = "timeout"
-	TimeoutFlagShort  string = "t"
-	LogLevelFlagLong  string = "log-level"
-	LogLevelFlagShort string = "ll"
+	VersionFlagLong      string = "version"
+	VerboseFlagLong      string = "verbose"
+	VerboseFlagShort     string = "v"
+	BrandingFlag         string = "branding"
+	TimeoutFlagLong      string = "timeout"
+	TimeoutFlagShort     string = "t"
+	ShowIgnoredFlagLong  string = "show-ignored"
+	ShowIgnoredFlagShort string = "li"
+	LogLevelFlagLong     string = "log-level"
+	LogLevelFlagShort    string = "ll"
 )
 
 // Default flag settings if not overridden by user input
@@ -44,6 +47,7 @@ const (
 	defaultLogLevel              string = "info"
 	defaultBranding              bool   = false
 	defaultVerboseOutput         bool   = false
+	defaultShowIgnored           bool   = false
 	defaultDisplayVersionAndExit bool   = false
 )
 

@@ -31,6 +31,8 @@ Go-based tooling used to detect whether a restart (service) or reboot (system) i
   - [Logging output](#logging-output)
 - [Examples](#examples)
   - [`OK` result](#ok-result)
+    - [Nothing found](#nothing-found)
+    - [Problematic assertion listed but evaluation result ignored](#problematic-assertion-listed-but-evaluation-result-ignored)
   - [`WARNING` result](#warning-result)
     - [Without `verbose` flag](#without-verbose-flag)
     - [Verbose output](#verbose-output)
@@ -58,6 +60,9 @@ restart (service) or reboot (system) is needed.
   Windows systems
   - NOTE: The intent is to support multiple operating systems, but as of this
     writing Windows is the only supported OS
+
+- Optionally list ignored assertions
+  - ignored assertions are not shown by default
 
 - Optional branding "signature"
   - used to indicate what Nagios plugin (and what version) is responsible for
@@ -100,7 +105,7 @@ been tested.
 - Windows 8.1
 - Windows 10
 
-- Windows Server 2012R2
+- Windows Server 2012 R2
 - Windows Server 2016
 - Windows Server 2022
 
@@ -162,9 +167,9 @@ been tested.
    - ```ini
      [/settings/external scripts/scripts]
      ; NOTE: stderr output is returned mixed in with stdout content. Disable logging to prevent this.
-     ; check_reboot=scripts\\custom\\check_reboot.exe --verbose --log-level disabled
+     ; check_reboot=scripts\\custom\\check_reboot.exe --verbose --show-ignored --log-level disabled
      ;
-     check_reboot=scripts\\custom\\check_reboot.exe --verbose
+     check_reboot=scripts\\custom\\check_reboot.exe --verbose --show-ignored
      ```
 
    - see [NSClient++ External scripts doc][nsclient-external-scripts] for
@@ -209,13 +214,14 @@ been tested.
 
 #### `check_reboot`
 
-| Flag              | Required | Default | Repeat | Possible                                                                | Description                                                                                          |
-| ----------------- | -------- | ------- | ------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `branding`        | No       | `false` | No     | `branding`                                                              | Toggles emission of branding details with plugin status details. This output is disabled by default. |
-| `h`, `help`       | No       | `false` | No     | `h`, `help`                                                             | Show Help text along with the list of supported flags.                                               |
-| `version`         | No       | `false` | No     | `version`                                                               | Whether to display application version and then immediately exit application.                        |
-| `v`, `verbose`    | No       | `false` | No     | `v`, `verbose`                                                          | Toggles emission of detailed output. This level of output is disabled by default.                    |
-| `ll`, `log-level` | No       | `info`  | No     | `disabled`, `panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace` | Log message priority filter. Log messages with a lower level are ignored.                            |
+| Flag                 | Required | Default | Repeat | Possible                                                                | Description                                                                                            |
+| -------------------- | -------- | ------- | ------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `branding`           | No       | `false` | No     | `branding`                                                              | Toggles emission of branding details with plugin status details. This output is disabled by default.   |
+| `h`, `help`          | No       | `false` | No     | `h`, `help`                                                             | Show Help text along with the list of supported flags.                                                 |
+| `version`            | No       | `false` | No     | `version`                                                               | Whether to display application version and then immediately exit application.                          |
+| `v`, `verbose`       | No       | `false` | No     | `v`, `verbose`                                                          | Toggles emission of detailed output. This level of output is disabled by default.                      |
+| `si`, `show-ignored` | No       | `false` | No     | `si`, `show-ignored`                                                    | Toggles emission of ignored assertion matches in the final plugin output. This is disabled by default. |
+| `ll`, `log-level`    | No       | `info`  | No     | `disabled`, `panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace` | Log message priority filter. Log messages with a lower level are ignored.                              |
 
 ### Logging output
 
@@ -234,25 +240,28 @@ findings.
 
 ### `OK` result
 
+#### Nothing found
+
 No reboot needed.
 
 This output is emitted by the plugin when a reboot is not needed.
 
 ```console
-C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe" --verbose
-OK: Reboot not needed (applied 15 reboot assertions, 0 matched)
+C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe"
+OK: Reboot not needed (assertions: 15 applied, 0 matched, 0 ignored)
 
 
 Summary:
 
   - 15 total reboot assertions applied
   - 0 total reboot assertions matched
+  - 0 total reboot assertions ignored
 
 --------------------------------------------------
 
 Reboot not required
 
- | 'registry_assertions'=14;;;; 'assertions_matched'=0;;;; 'errors'=0;;;; 'time'=0ms;;;; 'all_assertions'=15;;;; 'file_assertions'=1;;;;
+ | 'errors'=0;;;; 'evaluated_assertions'=15;;;; 'evaluated_file_assertions'=1;;;; 'evaluated_registry_assertions'=14;;;; 'ignored_assertions'=0;;;; 'matched_assertions'=0;;;; 'time'=42ms;;;;
 ```
 
 Regarding the output:
@@ -263,6 +272,44 @@ Regarding the output:
 - This output was captured on a Windows 10 system, but is comparable to the
   output emitted by other Windows desktop & server systems.
 
+#### Problematic assertion listed but evaluation result ignored
+
+```console
+C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe" --verbose --show-ignored
+OK: Reboot not needed (assertions: 15 applied, 0 matched, 1 ignored)
+
+
+Summary:
+
+  - 15 total reboot assertions applied
+  - 0 total reboot assertions matched
+  - 1 total reboot assertions ignored
+
+--------------------------------------------------
+
+Reboot not required
+
+Assertions ignored:
+
+  - Subkeys for key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending found
+    subkey: 117cab2d-82b1-4b5a-a08c-4d62dbee7782
+
+
+ | 'errors'=0;;;; 'evaluated_assertions'=15;;;; 'evaluated_file_assertions'=1;;;; 'evaluated_registry_assertions'=14;;;; 'ignored_assertions'=1;;;; 'matched_assertions'=0;;;; 'time'=1ms;;;;
+```
+
+Regarding the output:
+
+- The last line beginning with a space and the `|` symbol are performance
+  data metrics emitted by the plugin. Depending on your monitoring system, these
+  metrics may be collected and exposed as graphs/charts.
+- The `--verbose` flag is used to display additional details (where available)
+  for an assertion match.
+- The `--show-ignored` flag is used to display assertions whose evaluation
+  results were recorded, but are ignored when determining final plugin state.
+- This output was captured on a Windows Server 2012 system, but is comparable
+  to the output emitted by other Windows desktop & server systems.
+
 ### `WARNING` result
 
 This output is emitted by the plugin when a reboot is needed.
@@ -271,7 +318,7 @@ This output is emitted by the plugin when a reboot is needed.
 
 ```console
 C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe"
-WARNING: Reboot needed (applied 15 reboot assertions, 5 matched)
+WARNING: Reboot needed (assertions: 15 applied, 5 matched, 0 ignored)
 
 **ERRORS**
 
@@ -284,11 +331,11 @@ Summary:
 
   - 15 total reboot assertions applied
   - 5 total reboot assertions matched
+  - 0 total reboot assertions ignored
 
 --------------------------------------------------
 
 Reboot required because:
-
 
   - Value PendingFileRenameOperations of type MULTI_SZ for key HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager found
 
@@ -301,7 +348,7 @@ Reboot required because:
   - File C:\Windows\WinSxS\pending.xml found
 
 
- | 'assertions_matched'=5;;;; 'errors'=0;;;; 'time'=4ms;;;; 'all_assertions'=15;;;; 'file_assertions'=1;;;; 'registry_assertions'=14;;;;
+ | 'errors'=0;;;; 'evaluated_assertions'=15;;;; 'evaluated_file_assertions'=1;;;; 'evaluated_registry_assertions'=14;;;; 'ignored_assertions'=0;;;; 'matched_assertions'=5;;;; 'time'=1ms;;;;
 ```
 
 Regarding the output:
@@ -316,7 +363,7 @@ Regarding the output:
 
 ```console
 C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe" --verbose
-WARNING: Reboot needed (applied 15 reboot assertions, 5 matched)
+WARNING: Reboot needed (assertions: 15 applied, 5 matched, 0 ignored)
 
 **ERRORS**
 
@@ -329,14 +376,14 @@ Summary:
 
   - 15 total reboot assertions applied
   - 5 total reboot assertions matched
+  - 0 total reboot assertions ignored
 
 --------------------------------------------------
 
 Reboot required because:
 
-
   - Value PendingFileRenameOperations of type MULTI_SZ for key HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager found
-    \??\C:\Program Files (x86)\Microsoft\EdgeUpdate\1.3.167.21,
+    \??\C:\Program Files (x86)\Microsoft\EdgeUpdate\1.3.167.21, , \??\C:\Windows\Temp\f7cbd550-567a-4a88-a3e4-c67b414b439d.tmp,
 
   - Key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired found
 
@@ -347,7 +394,7 @@ Reboot required because:
   - File C:\Windows\WinSxS\pending.xml found
 
 
- | 'assertions_matched'=5;;;; 'errors'=0;;;; 'time'=4ms;;;; 'all_assertions'=15;;;; 'file_assertions'=1;;;; 'registry_assertions'=14;;;;
+ | 'errors'=0;;;; 'evaluated_assertions'=15;;;; 'evaluated_file_assertions'=1;;;; 'evaluated_registry_assertions'=14;;;; 'ignored_assertions'=0;;;; 'matched_assertions'=5;;;; 'time'=0ms;;;;
 ```
 
 Regarding the output:
@@ -355,6 +402,8 @@ Regarding the output:
 - The last line beginning with a space and the `|` symbol are performance
   data metrics emitted by the plugin. Depending on your monitoring system, these
   metrics may be collected and exposed as graphs/charts.
+- The `--verbose` flag is used to display additional details (where available)
+  for an assertion match.
 - This output was captured on a Windows Server 2022 system, but is comparable
   to the output emitted by other Windows desktop & server systems.
 
