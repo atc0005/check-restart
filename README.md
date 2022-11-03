@@ -24,7 +24,6 @@ Go-based tooling used to detect whether a restart (service) or reboot (system) i
   - [From source](#from-source)
   - [Using release binaries](#using-release-binaries)
   - [Deployment](#deployment)
-- [Configuration options](#configuration-options)
 - [Configuration](#configuration)
   - [Command-line arguments](#command-line-arguments)
     - [`check_reboot`](#check_reboot)
@@ -209,8 +208,6 @@ been tested.
          register               1
      }
      ```
-
-## Configuration options
 
 ## Configuration
 
