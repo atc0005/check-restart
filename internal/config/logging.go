@@ -99,7 +99,7 @@ func (c *Config) setupLogging(appType AppType) error {
 		// Plugin logging uses ConsoleWriter to generate human-friendly,
 		// colorized output to stderr. Log output is sent to stderr to prevent
 		// mixing in with stdout output intended for the Nagios console.
-		consoleWriter := zerolog.ConsoleWriter{Out: os.Stderr}
+		consoleWriter := zerolog.ConsoleWriter{Out: os.Stderr, NoColor: true}
 		c.Log = zerolog.New(consoleWriter).With().Timestamp().Caller().
 			Str("version", Version()).
 			Str("logging_level", c.LoggingLevel).
