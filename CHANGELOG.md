@@ -118,9 +118,9 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-cert/compare/v0.2.0...HEAD
-[v0.2.0]: https://github.com/atc0005/check-cert/releases/tag/v0.2.0
-[v0.1.3]: https://github.com/atc0005/check-cert/releases/tag/v0.1.3
-[v0.1.2]: https://github.com/atc0005/check-cert/releases/tag/v0.1.2
-[v0.1.1]: https://github.com/atc0005/check-cert/releases/tag/v0.1.1
-[v0.1.0]: https://github.com/atc0005/check-cert/releases/tag/v0.1.0
+[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.2.0...HEAD
+[v0.2.0]: https://github.com/atc0005/check-restart/releases/tag/v0.2.0
+[v0.1.3]: https://github.com/atc0005/check-restart/releases/tag/v0.1.3
+[v0.1.2]: https://github.com/atc0005/check-restart/releases/tag/v0.1.2
+[v0.1.1]: https://github.com/atc0005/check-restart/releases/tag/v0.1.1
+[v0.1.0]: https://github.com/atc0005/check-restart/releases/tag/v0.1.0
