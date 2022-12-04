@@ -39,18 +39,44 @@ var ErrMissingOptionalItem = errors.New("missing optional reboot asserter")
 // ServiceStater represents a type that is capable of evaluating its overall
 // state.
 type ServiceStater interface {
+
+	// IsCriticalState indicates whether an evaluation determined that the
+	// type is in a CRITICAL state. Whether the type has been marked as
+	// Ignored is considered. The caller is responsible for filtering the
+	// collection prior to calling this method.
 	IsCriticalState() bool
+
+	// IsCriticalState indicates whether an evaluation determined that the
+	// type is in a WARNING state. Whether the type has been marked as
+	// Ignored is considered. The caller is responsible for filtering the
+	// collection prior to calling this method.
 	IsWarningState() bool
+
+	// IsOKState indicates whether an evaluation determined that the type is
+	// in an OK state. Whether the type has been marked as Ignored is
+	// considered. The caller is responsible for filtering the collection
+	// prior to calling this method.
 	IsOKState() bool
 }
 
 // MatchedPath represents a the path to an item (e.g., reg key, file) that was
 // successfully matched when evaluating an assertion.
 type MatchedPath interface {
+	// Root returns the left-most element of a matched path. This returned
+	// value is the beginning of a qualified path.
 	Root() string
+
+	// Rel returns the relative (unqualified) element of a matched path. The
+	// base element of the path is usually included in this element.
 	Rel() string
+
+	// Base returns the last or right-most "leaf" element of a matched path.
 	Base() string
+
+	// Full returns the qualified matched path value.
 	Full() string
+
+	// String provides a human readable version of the matched path value.
 	String() string
 }
 
@@ -66,14 +92,41 @@ type RebootRequiredAsserter interface {
 	// operating on values implementing this interface.
 	Err() error
 
+	// Validate performs basic validation of all items in the collection. An
+	// error is returned for any validation failures.
 	Validate() error
+
+	// Evaluate performs the minimum number of assertions to determine whether
+	// a reboot is needed. If an error is encountered further checks are
+	// skipped.
 	Evaluate()
+
+	// String provides the fully qualified path for an asserter.
 	String() string
+
+	// RebootReasons returns a list of the reasons associated with the
+	// evidence found for an evaluation that indicates a reboot is needed.
 	RebootReasons() []string
+
+	// Ignored indicates whether the asserter has been marked as ignored.
 	Ignored() bool
+
+	// MatchedPaths returns all recorded paths from successful assertion
+	// matches.
 	MatchedPaths() MatchedPaths
+
+	// RebootRequired indicates whether an evaluation determined that a reboot
+	// is needed.
 	RebootRequired() bool
+
+	// HasEvidence indicates whether any evidence was found for an assertion
+	// evaluation.
 	HasEvidence() bool
+
+	// Filter uses the list of specified ignore patterns to mark each matched
+	// path for the Key as ignored *IF* a match is found. If no matched paths
+	// are recorded Filter makes no changes. Filter should be called before
+	// performing final state evaluation.
 	Filter(ignorePatterns []string)
 }
 
