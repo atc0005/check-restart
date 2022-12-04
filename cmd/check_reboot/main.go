@@ -65,20 +65,7 @@ func main() {
 	}
 
 	// Collect last minute details just before ending plugin execution.
-	defer func(exitState *nagios.ExitState, start time.Time, logger zerolog.Logger) {
-
-		// Record plugin runtime, emit this metric regardless of exit
-		// point/cause.
-		runtimeMetric := nagios.PerformanceData{
-			Label: "time",
-			Value: fmt.Sprintf("%dms", time.Since(start).Milliseconds()),
-		}
-		if err := exitState.AddPerfData(false, runtimeMetric); err != nil {
-			logger.Error().
-				Err(err).
-				Msg("failed to add time (runtime) performance data metric")
-		}
-	}(&nagiosExitState, pluginStart, cfg.Log)
+	defer appendPerfData(&nagiosExitState, pluginStart, cfg.Log)
 
 	if cfg.EmitBranding {
 		// If enabled, show application details at end of notification
@@ -167,34 +154,7 @@ func main() {
 		allAssertions.Filter(allIgnorePatterns)
 	}
 
-	pd := []nagios.PerformanceData{
-		// The `time` (runtime) metric is appended at plugin exit, so do not
-		// duplicate it here.
-		{
-			Label: "evaluated_assertions",
-			Value: fmt.Sprintf("%d", len(allAssertions)),
-		},
-		{
-			Label: "evaluated_file_assertions",
-			Value: fmt.Sprintf("%d", len(fileAssertions)),
-		},
-		{
-			Label: "evaluated_registry_assertions",
-			Value: fmt.Sprintf("%d", len(registryAssertions)),
-		},
-		{
-			Label: "matched_assertions",
-			Value: fmt.Sprintf("%d", allAssertions.NumMatched()),
-		},
-		{
-			Label: "ignored_assertions",
-			Value: fmt.Sprintf("%d", allAssertions.NumIgnored()),
-		},
-		{
-			Label: "errors",
-			Value: fmt.Sprintf("%d", allAssertions.NumErrors(false)),
-		},
-	}
+	pd := getPerfData(allAssertions, fileAssertions, registryAssertions)
 
 	switch {
 	case !allAssertions.IsOKState():
