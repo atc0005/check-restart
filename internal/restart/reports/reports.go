@@ -113,69 +113,26 @@ func writeAssertions(w io.Writer, assertions restart.RebootRequiredAsserters, ve
 	const topDetailTemplateStr = "\n  - %s%s"
 	const subDetailTemplateStr = "    %s%s"
 
+	// We don't filter on whether the assertion is ignored as we're using this
+	// helper function to process collections of both types.
 	for _, assertion := range assertions {
+		if !assertion.HasEvidence() {
+			continue
+		}
 
-		// if len(assertion.RebootReasons()) > 0 && assertion.RebootRequired() && !assertion.Ignored() {
+		// While there is *usually* one reason for a reboot, the current
+		// design allows for multiple reasons.
+		for _, reason := range assertion.RebootReasons() {
+			fmt.Fprintf(w, topDetailTemplateStr, reason, nagios.CheckOutputEOL)
 
-		// We don't filter on whether the assertion is ignored as we're using
-		// this helper function to process collections of both types.
-		if assertion.HasEvidence() {
-
-			for _, reason := range assertion.RebootReasons() {
-
-				fmt.Fprintf(
-					w,
-					topDetailTemplateStr,
-					reason,
-					nagios.CheckOutputEOL,
-				)
-
-				switch v := assertion.(type) {
-				case restart.RebootRequiredAsserterWithSubPaths:
-
-					if v.HasSubPathMatches() {
-						logger.Printf("%q has subkey evidence", assertion.String())
-
-						if verbose {
-							for _, path := range v.MatchedPaths() {
-								fmt.Fprintf(
-									w,
-									subDetailTemplateStr,
-									"subkey: "+path.Base(),
-									nagios.CheckOutputEOL,
-								)
-							}
-						}
-
-					}
-
-				default:
-
-					logger.Printf("%q does not have subkey evidence", assertion.String())
-				}
-
-				if verbose {
-					switch v := assertion.(type) {
-					case restart.RebootRequiredAsserterWithDataDisplay:
-						logger.Printf("Type assertion worked, value available for check result")
-
-						fmt.Fprintf(
-							w,
-							subDetailTemplateStr,
-							v.DataDisplay(),
-							nagios.CheckOutputEOL,
-						)
-
-					default:
-						logger.Printf("Type assertion failed, value not available for check result")
-						logger.Printf("Type found: %T", v)
-					}
-				}
-
+			// We are processing types beneath RebootReasons so that we can
+			// emit more detailed information following a "standard" reboot
+			// required statement.
+			if verbose {
+				appendAdditionalContext(w, assertion, subDetailTemplateStr)
 			}
 
 		}
-
 	}
 
 	fmt.Fprint(w, nagios.CheckOutputEOL)
@@ -227,5 +184,51 @@ func CheckRebootReport(assertions restart.RebootRequiredAsserters, showIgnored b
 	}
 
 	return report.String()
+
+}
+
+func appendAdditionalContext(
+	w io.Writer,
+	assertion restart.RebootRequiredAsserter,
+	subDetailTemplateStr string,
+) {
+
+	switch v := assertion.(type) {
+	case restart.RebootRequiredAsserterWithSubPaths:
+
+		if v.HasSubPathMatches() {
+			logger.Printf("%q has subpath evidence", assertion.String())
+
+			for _, path := range v.MatchedPaths() {
+				fmt.Fprintf(
+					w,
+					subDetailTemplateStr,
+					"subpath: "+path.Base(),
+					nagios.CheckOutputEOL,
+				)
+			}
+
+		}
+
+	default:
+
+		logger.Printf("%q does not have subkey evidence", assertion.String())
+	}
+
+	switch v := assertion.(type) {
+	case restart.RebootRequiredAsserterWithDataDisplay:
+		logger.Printf("Type assertion worked, value available for check result")
+
+		fmt.Fprintf(
+			w,
+			subDetailTemplateStr,
+			v.DataDisplay(),
+			nagios.CheckOutputEOL,
+		)
+
+	default:
+		logger.Printf("Type assertion failed, value not available for check result")
+		logger.Printf("Type found: %T", v)
+	}
 
 }
