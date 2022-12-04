@@ -570,7 +570,7 @@ func (mp MatchedPath) Root() string {
 }
 
 // Rel returns the relative (unqualified) element of a matched path. The base
-// element of the path isi usually included in this element.
+// element of the path is usually included in this element.
 func (mp MatchedPath) Rel() string {
 	return mp.relative
 }
