@@ -26,6 +26,35 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.2.1] - 2022-12-05
+
+### Overview
+
+- Bug fixes
+- Dependency updates
+- built using Go 1.19.3
+  - Statically linked
+  - Windows (x64)
+
+### Changed
+
+- Dependencies
+  - `Go`
+    - `1.19.2` to `1.19.3`
+  - `golang.org/x/sys`
+    - `v0.1.0` to `v0.3.0`
+
+### Fixed
+
+- (GH-53) README: Remove duplicate "Configuration" header
+- (GH-56) Explicitly disable colorized plugin logger output
+- (GH-57) Enable pkg debug logging if global Debug or Trace
+- (GH-58) Fix project name in CHANGELOG links
+- (GH-59) Minor refactor of perfdata handling
+- (GH-60) Add doc comments for interface methods
+- (GH-61) Reduce complexity of reports.writeAssertions func
+- (GH-63) Resolve gocognit linter warnings
+
 ## [v0.2.0] - 2022-11-01
 
 ### Overview
@@ -118,7 +147,8 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.2.1...HEAD
+[v0.2.1]: https://github.com/atc0005/check-restart/releases/tag/v0.2.1
 [v0.2.0]: https://github.com/atc0005/check-restart/releases/tag/v0.2.0
 [v0.1.3]: https://github.com/atc0005/check-restart/releases/tag/v0.1.3
 [v0.1.2]: https://github.com/atc0005/check-restart/releases/tag/v0.1.2
