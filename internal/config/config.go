@@ -37,12 +37,12 @@ type AppType struct {
 	// Plugin represents an application used as a Nagios plugin.
 	Plugin bool
 
-	// Inspecter represents an application used for one-off or isolated
+	// Inspector represents an application used for one-off or isolated
 	// checks. Unlike a Nagios plugin which is focused on specific attributes
-	// resulting in a severity-based outcome, an Inspecter application is
+	// resulting in a severity-based outcome, an Inspector application is
 	// intended for examining a small set of targets for
 	// informational/troubleshooting purposes.
-	Inspecter bool
+	Inspector bool
 }
 
 // Config represents the application configuration as specified via

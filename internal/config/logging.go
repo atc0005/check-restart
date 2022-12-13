@@ -85,14 +85,14 @@ func (c *Config) setupLogging(appType AppType) error {
 	// troubleshooting. We can extend the logged fields as needed by each CLI
 	// application or Nagios plugin to cover unique details.
 	switch {
-	case appType.Inspecter:
+	case appType.Inspector:
 		// CLI app logging uses ConsoleWriter to generate human-friendly,
 		// colorized output to stdout.
 		consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout}
 		c.Log = zerolog.New(consoleWriter).With().Timestamp().Caller().
 			Str("version", Version()).
 			Str("logging_level", c.LoggingLevel).
-			Str("app_type", appTypeInspecter).
+			Str("app_type", appTypeInspector).
 			Logger()
 
 	case appType.Plugin:
