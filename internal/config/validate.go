@@ -18,7 +18,7 @@ import (
 func (c Config) validate(appType AppType) error {
 
 	switch {
-	case appType.Inspecter:
+	case appType.Inspector:
 
 	case appType.Plugin:
 
