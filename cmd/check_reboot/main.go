@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/atc0005/check-restart/internal/config"
 	"github.com/atc0005/check-restart/internal/restart"
@@ -24,15 +23,8 @@ import (
 )
 
 func main() {
-	// Start the timer. We'll use this to emit the plugin runtime as a
-	// performance data metric.
-	pluginStart := time.Now()
 
-	// Set initial "state" as valid, adjust as we go.
-	var nagiosExitState = nagios.ExitState{
-		LastError:      nil,
-		ExitStatusCode: nagios.StateOKExitCode,
-	}
+	nagiosExitState := nagios.New()
 
 	// defer this from the start so it is the last deferred function to run
 	defer nagiosExitState.ReturnCheckResults()
@@ -63,9 +55,6 @@ func main() {
 
 		return
 	}
-
-	// Collect last minute details just before ending plugin execution.
-	defer appendPerfData(&nagiosExitState, pluginStart, cfg.Log)
 
 	if cfg.EmitBranding {
 		// If enabled, show application details at end of notification
