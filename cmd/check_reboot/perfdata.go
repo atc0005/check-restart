@@ -9,27 +9,10 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/atc0005/check-restart/internal/restart"
 	"github.com/atc0005/go-nagios"
-	"github.com/rs/zerolog"
 )
-
-func appendPerfData(exitState *nagios.ExitState, start time.Time, logger zerolog.Logger) {
-	// Record plugin runtime, emit this metric regardless of exit
-	// point/cause.
-	runtimeMetric := nagios.PerformanceData{
-		Label: "time",
-		Value: fmt.Sprintf("%dms", time.Since(start).Milliseconds()),
-	}
-	if err := exitState.AddPerfData(false, runtimeMetric); err != nil {
-		logger.Error().
-			Err(err).
-			Msg("failed to add time (runtime) performance data metric")
-	}
-
-}
 
 // getPerfData gathers performance data metrics that we wish to report.
 func getPerfData(
