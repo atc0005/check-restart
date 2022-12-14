@@ -5,7 +5,7 @@ go 1.19
 require golang.org/x/sys v0.3.0
 
 require (
-	github.com/atc0005/go-nagios v0.10.2
+	github.com/atc0005/go-nagios v0.11.0
 	github.com/rs/zerolog v1.28.0
 )
 
