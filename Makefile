@@ -331,9 +331,7 @@ links: windows-x86-links windows-x64-links linux-x86-links linux-x64-links
 	@echo "Completed generating download links for all release assets"
 
 .PHONY: release-build
-
-# Build everything for now until the quantity/size of binaries becomes
-# prohibitive.
+## release-build: generates assets for public release
 release-build: windows-x64 windows-x64-links
 
 	@echo "Completed all tasks for release build"
