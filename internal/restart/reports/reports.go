@@ -123,13 +123,6 @@ func writeAssertions(w io.Writer, assertions restart.RebootRequiredAsserters, ve
 		// While there is *usually* one reason for a reboot, the current
 		// design allows for multiple reasons.
 		for _, reason := range assertion.RebootReasons() {
-			// Prevent Nagios (or email clients rendering notifications) from
-			// dropping path separators by replacing Windows-specific registry
-			// and file path separators (even the escaped backslash) with a
-			// single slash.
-			reason = strings.ReplaceAll(reason, `\\`, `\`)
-			reason = strings.ReplaceAll(reason, `\`, `/`)
-
 			fmt.Fprintf(w, topDetailTemplateStr, reason, nagios.CheckOutputEOL)
 
 			// We are processing types beneath RebootReasons so that we can
@@ -190,7 +183,9 @@ func CheckRebootReport(assertions restart.RebootRequiredAsserters, showIgnored b
 		writeAssertions(&report, ignoredAssertions, verbose)
 	}
 
-	return report.String()
+	// Normalize output so that Windows-specific paths are less likely to be
+	// mangled when included in generated notifications.
+	return substituteSeparators(report.String())
 
 }
 
@@ -238,4 +233,14 @@ func appendAdditionalContext(
 		logger.Printf("Type found: %T", v)
 	}
 
+}
+
+// substitutePathSeparators replaces backslashes used as Windows-specific
+// registry and file path separators (even the escaped backslash) with a
+// single slash.
+func substituteSeparators(input string) string {
+	input = strings.ReplaceAll(input, `\\`, `\`)
+	input = strings.ReplaceAll(input, `\`, `/`)
+
+	return input
 }
