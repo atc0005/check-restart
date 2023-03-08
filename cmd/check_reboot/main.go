@@ -111,6 +111,17 @@ func main() {
 		log.Error().
 			Err(err).
 			Msg("failed to add performance data")
+
+		// Surface the error in plugin output.
+		plugin.AddError(err)
+
+		plugin.ExitStatusCode = nagios.StateUNKNOWNExitCode
+		plugin.ServiceOutput = fmt.Sprintf(
+			"%s: Failed to process performance data metrics",
+			nagios.StateUNKNOWNLabel,
+		)
+
+		return
 	}
 
 	switch {
