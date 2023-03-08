@@ -26,6 +26,53 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.2.3] - 2023-03-08
+
+### Overview
+
+- Dependency updates
+- built using Go 1.19.7
+  - Statically linked
+  - Windows (x64)
+
+### Changed
+
+- Dependencies
+  - `Go`
+    - `1.19.4` to `1.19.7`
+  - `atc0005/go-nagios`
+    - `v0.10.2` to `v0.14.0`
+  - `rs/zerolog`
+    - `v1.28.0` to `v1.29.0`
+  - `golang.org/x/sys`
+    - `v0.3.0` to `v0.6.0`
+  - `mattn/go-isatty`
+    - `v0.0.16` to `v0.0.17`
+- (GH-71) Drop explicit plugin runtime tracking
+  - allow the new nagios package functionality to handle tracking and emitting
+    the time metric automatically at plugin completion
+- (GH-73) Update nagios library usage to reflect dep changes
+- GitHub Actions Workflows
+  - (GH-79) Add Go Module Validation, Dependency Updates jobs
+  - (GH-87) Drop `Push Validation` workflow
+  - (GH-88) Rework workflow scheduling
+  - (GH-92) Remove `Push Validation` workflow status badge
+- Builds
+  - (GH-80) Add missing Makefile usage entry for release build
+  - (GH-81) Add missing "clean" step to recipe
+
+### Fixed
+
+- (GH-69) Fix mispelling of Inspector app type
+- (GH-75) Add missing copyright header to test file
+- (GH-80) Add missing Makefile usage entry for release build
+- (GH-81) Add missing "clean" step to recipe
+- (GH-89) Listed registry key paths are stripped of separators
+- (GH-101) Listed `MULTI_SZ` registry key paths are stripped of separators
+- (GH-104) Use UNKNOWN state for invalid command-line args
+- (GH-105) Use UNKNOWN state for perfdata add failure
+- (GH-106) Use UNKNOWN state for failure to validate assertions
+
 ## [v0.2.2] - 2022-12-09
 
 ### Overview
@@ -162,7 +209,8 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.2.3...HEAD
+[v0.2.3]: https://github.com/atc0005/check-restart/releases/tag/v0.2.3
 [v0.2.2]: https://github.com/atc0005/check-restart/releases/tag/v0.2.2
 [v0.2.1]: https://github.com/atc0005/check-restart/releases/tag/v0.2.1
 [v0.2.0]: https://github.com/atc0005/check-restart/releases/tag/v0.2.0
