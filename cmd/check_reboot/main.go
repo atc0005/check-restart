@@ -92,10 +92,10 @@ func main() {
 		log.Error().Err(err).Msg("Failed to validate provided assertions")
 
 		plugin.AddError(err)
-		plugin.ExitStatusCode = nagios.StateCRITICALExitCode
+		plugin.ExitStatusCode = nagios.StateUNKNOWNExitCode
 		plugin.ServiceOutput = fmt.Sprintf(
 			"%s: Failed to validate list of reboot evaluations",
-			nagios.StateCRITICALLabel,
+			nagios.StateUNKNOWNLabel,
 		)
 
 		return
