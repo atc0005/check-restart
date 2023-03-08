@@ -168,9 +168,9 @@ func main() {
 
 		log.Debug().Msg("allAssertions.HasErrors(false) NOT triggered")
 
-		plugin.ExitStatusCode = allAssertions.ServiceState().ExitCode
 		plugin.ServiceOutput = reports.CheckRebootOneLineSummary(allAssertions, false)
 		plugin.LongServiceOutput = reports.CheckRebootReport(allAssertions, cfg.ShowIgnored, cfg.VerboseOutput)
+		plugin.ExitStatusCode = allAssertions.ServiceState().ExitCode
 
 		return
 
