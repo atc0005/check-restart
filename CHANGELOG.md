@@ -26,6 +26,34 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.3.0] - 2023-03-09
+
+### Overview
+
+- Add support for generating packages
+- Generated binary changes
+  - filename patterns
+  - compression
+  - executable metadata
+- Build improvements
+- built using Go 1.19.7
+  - Statically linked
+  - Windows (x64)
+
+### Added
+
+- (GH-95) Generate RPM/DEB packages using nFPM
+
+### Changed
+
+- (GH-94) Switch to semantic versioning (semver) compatible versioning
+  pattern
+- (GH-96) Add version metadata to Windows executables
+- (GH-97) Makefile: Compress binaries and use fixed filenames
+- (GH-98) Makefile: Refresh recipes to add "standard" set, new
+  package-related options
+- (GH-99) Build dev/stable releases using go-ci Docker image
+
 ## [v0.2.3] - 2023-03-08
 
 ### Overview
@@ -209,7 +237,8 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.3.0...HEAD
+[v0.3.0]: https://github.com/atc0005/check-restart/releases/tag/v0.3.0
 [v0.2.3]: https://github.com/atc0005/check-restart/releases/tag/v0.2.3
 [v0.2.2]: https://github.com/atc0005/check-restart/releases/tag/v0.2.2
 [v0.2.1]: https://github.com/atc0005/check-restart/releases/tag/v0.2.1
