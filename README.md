@@ -59,6 +59,7 @@ restart (service) or reboot (system) is needed.
   Windows systems
   - NOTE: The intent is to support multiple operating systems, but as of this
     writing Windows is the only supported OS
+    - see <https://github.com/atc0005/check-restart/labels/linux>
 
 - Optionally list ignored assertions
   - ignored assertions are not shown by default
@@ -149,9 +150,16 @@ been tested.
 1. Copy the applicable binaries to whatever systems needs to run them so that
    they can be deployed
 
+**NOTE**: Depending on which `Makefile` recipe you use the generated binary
+may be compressed and have an `xz` extension. If so, you should decompress the
+binary first before deploying it (e.g., `xz -d
+check_reboot-windows-amd64.exe.xz`).
+
 ### Using release binaries
 
 1. Download the [latest release][repo-url] binaries
+1. Decompress binaries
+   - e.g., `xz -d check_reboot-windows-amd64.exe.xz`
 1. Copy the applicable binaries to whatever systems needs to run them so that
    they can be deployed
 
