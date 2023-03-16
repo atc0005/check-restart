@@ -117,6 +117,17 @@ const (
 	RegKeyRootNameUnknown         = "UNKNOWN" // fallback value
 )
 
+const (
+	// pendingFileRenameOperationsPrefix is a prefix found for entries in the
+	// REG_MULTI_SZ registry key value named PendingFileRenameOperations.
+	pendingFileRenameOperationsPrefix string = `\??\`
+
+	// RegKeyTypeMultiSZDataDisplayLimit is the limit or sampling size used
+	// when generating a string representation of a multi-string registry key
+	// value for display purposes.
+	RegKeyTypeMultiSZDataDisplayLimit int = 5
+)
+
 // Key requirement labels used by logging and error messages to provide
 // additional context to messages.
 const (
@@ -1647,11 +1658,63 @@ func (ks *KeyStrings) ExpectedData() []string {
 	return ks.expectedData
 }
 
+// CleanedData returns a copy of the data stored for a registry key value with
+// patterns found to be problematic for display/logging removed. The original
+// values are not modified.
+func (ks *KeyStrings) CleanedData() []string {
+
+	// Clone original values
+	// cleaned := make([]string, len(ks.runtime.data), cap(ks.runtime.data))
+	// copy(cleaned, ks.runtime.data)
+
+	// Opted to not clone the original collection just in case it contains a
+	// lot of entries that require cleanup.
+	cleaned := make([]string, 0, len(ks.runtime.data))
+
+	for _, entry := range ks.runtime.data {
+		// Skip blank lines
+		if strings.TrimSpace(entry) == "" {
+			continue
+		}
+
+		// Remove common prefix found in PendingFileRenameOperations registry
+		// key values.
+		entry = strings.ReplaceAll(
+			entry, pendingFileRenameOperationsPrefix, ``)
+
+		cleaned = append(cleaned, entry)
+	}
+
+	return cleaned
+}
+
 // DataDisplay provides a string representation of a registry key values's
 // actual data for display purposes.
 func (ks *KeyStrings) DataDisplay() string {
 	logger.Printf("Called for %+v", ks)
-	return strings.Join(ks.Data(), ", ")
+
+	logger.Printf(
+		"%d data entries found for key %q",
+		len(ks.runtime.data),
+		ks.path,
+	)
+
+	// Return a subset of the data collection instead of the full set; real
+	// world testing found close to 200 entries for a
+	// PendingFileRenameOperations collection.
+	switch {
+	case len(ks.runtime.data) > RegKeyTypeMultiSZDataDisplayLimit:
+		entriesSkipped := len(ks.runtime.data) - RegKeyTypeMultiSZDataDisplayLimit
+		logger.Printf(
+			"DataDisplay limit of %d exceeded: %d entries skipped",
+			RegKeyTypeMultiSZDataDisplayLimit,
+			entriesSkipped,
+		)
+		return strings.Join(ks.CleanedData()[:RegKeyTypeMultiSZDataDisplayLimit], ", ")
+	default:
+		return strings.Join(ks.CleanedData(), ", ")
+	}
+
 }
 
 // AdditionalEvidence indicates what additional evidence "markers" have been
