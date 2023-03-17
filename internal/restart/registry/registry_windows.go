@@ -1698,9 +1698,12 @@ func (ks *KeyStrings) CleanedData() []string {
 func (ks *KeyStrings) DataDisplay() string {
 	logger.Printf("Called for %+v", ks)
 
+	entriesFound := len(ks.runtime.data)
+	var entriesSkipped int
+
 	logger.Printf(
 		"%d data entries found for key %q",
-		len(ks.runtime.data),
+		entriesFound,
 		ks.path,
 	)
 
@@ -1708,16 +1711,38 @@ func (ks *KeyStrings) DataDisplay() string {
 	// world testing found close to 200 entries for a
 	// PendingFileRenameOperations collection.
 	switch {
-	case len(ks.runtime.data) > RegKeyTypeMultiSZDataDisplayLimit:
-		entriesSkipped := len(ks.runtime.data) - RegKeyTypeMultiSZDataDisplayLimit
+	case entriesFound > RegKeyTypeMultiSZDataDisplayLimit:
+
+		entriesSkipped = entriesFound - RegKeyTypeMultiSZDataDisplayLimit
+
 		logger.Printf(
 			"DataDisplay limit of %d exceeded: %d entries skipped",
 			RegKeyTypeMultiSZDataDisplayLimit,
 			entriesSkipped,
 		)
-		return strings.Join(ks.CleanedData()[:RegKeyTypeMultiSZDataDisplayLimit], ", ")
+
+		listPrefix := fmt.Sprintf(
+			"Entries [%d total, %d skipped]", entriesFound, entriesSkipped,
+		)
+
+		samples := ks.CleanedData()[:RegKeyTypeMultiSZDataDisplayLimit]
+
+		// samples = append([]string{warning}, samples...)
+		listing := fmt.Sprintf(
+			"%s: %s", listPrefix, strings.Join(samples, ", "))
+
+		return listing
+
 	default:
-		return strings.Join(ks.CleanedData(), ", ")
+
+		listPrefix := fmt.Sprintf(
+			"Entries [%d total, %d skipped]", entriesFound, entriesSkipped,
+		)
+
+		listing := fmt.Sprintf(
+			"%s: %s", listPrefix, strings.Join(ks.CleanedData(), ", "))
+
+		return listing
 	}
 
 }
