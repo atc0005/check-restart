@@ -68,6 +68,8 @@ func CheckRebootOneLineSummary(assertions restart.RebootRequiredAsserters, evalI
 
 }
 
+//nolint:all
+//lint:ignore U1000 disabling use per GH-119, but may re-enable later via flag
 func writeReportHeader(w io.Writer, assertions restart.RebootRequiredAsserters, verbose bool) {
 	fmt.Fprintf(
 		w,
@@ -144,7 +146,9 @@ func writeAssertions(w io.Writer, assertions restart.RebootRequiredAsserters, ve
 func CheckRebootReport(assertions restart.RebootRequiredAsserters, showIgnored bool, verbose bool) string {
 	var report strings.Builder
 
-	writeReportHeader(&report, assertions, verbose)
+	// Disabling per GH-119, but may re-enable later via flag.
+	//
+	// writeReportHeader(&report, assertions, verbose)
 
 	switch {
 
