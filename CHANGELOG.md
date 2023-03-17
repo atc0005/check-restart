@@ -26,6 +26,31 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.4.0] - 2023-03-17
+
+### Overview
+
+- Output tweaks
+- Documentation refresh
+- built using Go 1.19.7
+  - Statically linked
+  - Windows (x64)
+
+### Changed
+
+- (GH-116) Cleanup & sample REG_MULTI_SZ reg key values
+- (GH-118) Reduce sampling of MULTI_SZ key values further
+- (GH-119) Reduce plugin output further by omitting Summary section
+- (GH-121) List total/omitted entries count for `REG_MULTI_SZ` registry key
+  values
+- (GH-123) Update README to reflect recent output tweaks
+
+### Fixed
+
+- (GH-115) Verbose "reboot evidence" for PendingFileRenameOperations
+  REG_MULTI_SZ registry key is *too* verbose resulting in potential loss of
+  additional reboot required reasons
+
 ## [v0.3.0] - 2023-03-09
 
 ### Overview
@@ -237,7 +262,8 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.4.0...HEAD
+[v0.4.0]: https://github.com/atc0005/check-restart/releases/tag/v0.4.0
 [v0.3.0]: https://github.com/atc0005/check-restart/releases/tag/v0.3.0
 [v0.2.3]: https://github.com/atc0005/check-restart/releases/tag/v0.2.3
 [v0.2.2]: https://github.com/atc0005/check-restart/releases/tag/v0.2.2
