@@ -264,15 +264,6 @@ This output is emitted by the plugin when a reboot is not needed.
 C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe"
 OK: Reboot not needed (assertions: 15 applied, 0 matched, 0 ignored)
 
-
-Summary:
-
-  - 15 total reboot assertions applied
-  - 0 total reboot assertions matched
-  - 0 total reboot assertions ignored
-
---------------------------------------------------
-
 Reboot not required
 
  | 'errors'=0;;;; 'evaluated_assertions'=15;;;; 'evaluated_file_assertions'=1;;;; 'evaluated_registry_assertions'=14;;;; 'ignored_assertions'=0;;;; 'matched_assertions'=0;;;; 'time'=42ms;;;;
@@ -292,20 +283,11 @@ Regarding the output:
 C:\Users\Administrator>"C:\Program Files\NSClient++\scripts\custom\check_reboot.exe" --verbose --show-ignored
 OK: Reboot not needed (assertions: 15 applied, 0 matched, 1 ignored)
 
-
-Summary:
-
-  - 15 total reboot assertions applied
-  - 0 total reboot assertions matched
-  - 1 total reboot assertions ignored
-
---------------------------------------------------
-
 Reboot not required
 
 Assertions ignored:
 
-  - Subkeys for key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending found
+  - Subkeys for key HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Windows/CurrentVersion/WindowsUpdate/Services/Pending found
     subkey: 117cab2d-82b1-4b5a-a08c-4d62dbee7782
 
 
@@ -342,18 +324,9 @@ WARNING: Reboot needed (assertions: 15 applied, 1 matched, 0 ignored)
 
 **DETAILED INFO**
 
-
-Summary:
-
-  - 15 total reboot assertions applied
-  - 1 total reboot assertions matched
-  - 0 total reboot assertions ignored
-
---------------------------------------------------
-
 Reboot required because:
 
-  - Subkeys for key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending found
+  - Subkeys for key HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Windows/CurrentVersion/WindowsUpdate/Services/Pending found
     subkey: 117cab2d-82b1-4b5a-a08c-4d62dbee7782
 
 
@@ -389,26 +362,17 @@ WARNING: Reboot needed (assertions: 15 applied, 5 matched, 0 ignored)
 
 **DETAILED INFO**
 
-
-Summary:
-
-  - 15 total reboot assertions applied
-  - 5 total reboot assertions matched
-  - 0 total reboot assertions ignored
-
---------------------------------------------------
-
 Reboot required because:
 
-  - Value PendingFileRenameOperations of type MULTI_SZ for key HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager found
+  - Value PendingFileRenameOperations of type MULTI_SZ for key HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/Control/Session Manager found
 
-  - Key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired found
+  - Key HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Windows/CurrentVersion/WindowsUpdate/Auto Update/RebootRequired found
 
-  - Key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending found
+  - Key HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Windows/CurrentVersion/Component Based Servicing/RebootPending found
 
-  - Key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending found
+  - Key HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Windows/CurrentVersion/Component Based Servicing/PackagesPending found
 
-  - File C:\Windows\WinSxS\pending.xml found
+  - File C:/Windows/WinSxS/pending.xml found
 
 
  | 'errors'=0;;;; 'evaluated_assertions'=15;;;; 'evaluated_file_assertions'=1;;;; 'evaluated_registry_assertions'=14;;;; 'ignored_assertions'=0;;;; 'matched_assertions'=5;;;; 'time'=1ms;;;;
@@ -434,27 +398,18 @@ WARNING: Reboot needed (assertions: 15 applied, 5 matched, 0 ignored)
 
 **DETAILED INFO**
 
-
-Summary:
-
-  - 15 total reboot assertions applied
-  - 5 total reboot assertions matched
-  - 0 total reboot assertions ignored
-
---------------------------------------------------
-
 Reboot required because:
 
-  - Value PendingFileRenameOperations of type MULTI_SZ for key HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager found
-    \??\C:\Program Files (x86)\Microsoft\EdgeUpdate\1.3.167.21, , \??\C:\Windows\Temp\f7cbd550-567a-4a88-a3e4-c67b414b439d.tmp,
+  - Value PendingFileRenameOperations of type MULTI_SZ for key HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/Control/Session Manager found
+    Entries [14 total, 12 skipped]: C:/Program Files (x86)/Microsoft/EdgeUpdate/1.3.167.21, C:/Windows/Temp/f7cbd550-567a-4a88-a3e4-c67b414b439d.tmp
 
-  - Key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired found
+  - Key HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Windows/CurrentVersion/WindowsUpdate/Auto Update/RebootRequired found
 
-  - Key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending found
+  - Key HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Windows/CurrentVersion/Component Based Servicing/RebootPending found
 
-  - Key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending found
+  - Key HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Windows/CurrentVersion/Component Based Servicing/PackagesPending found
 
-  - File C:\Windows\WinSxS\pending.xml found
+  - File C:/Windows/WinSxS/pending.xml found
 
 
  | 'errors'=0;;;; 'evaluated_assertions'=15;;;; 'evaluated_file_assertions'=1;;;; 'evaluated_registry_assertions'=14;;;; 'ignored_assertions'=0;;;; 'matched_assertions'=5;;;; 'time'=0ms;;;;
