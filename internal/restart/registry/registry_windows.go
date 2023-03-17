@@ -125,7 +125,12 @@ const (
 	// RegKeyTypeMultiSZDataDisplayLimit is the limit or sampling size used
 	// when generating a string representation of a multi-string registry key
 	// value for display purposes.
-	RegKeyTypeMultiSZDataDisplayLimit int = 5
+	//
+	// Due to issues encountered with NSClient++ truncating output we need to
+	// keep this value small in order to reduce the chance that output from
+	// other required required evidence is lost when emitting verbose details
+	// for this registry key type.
+	RegKeyTypeMultiSZDataDisplayLimit int = 2
 )
 
 // Key requirement labels used by logging and error messages to provide
