@@ -1256,9 +1256,13 @@ func (k *Key) Evaluate() {
 }
 
 // Filter uses the list of specified ignore patterns to mark each matched path
-// for the Key as ignored *IF* a match is found. If no matched paths are
-// recorded Filter makes no changes. Filter should be called before performing
-// final state evaluation.
+// for the Key as ignored *IF* a match is found.
+//
+// While matched path and ignored pattern entries are normalized before
+// comparison, we record path entries using the original non-normalized form.
+//
+// If no matched paths are recorded Filter makes no changes. Filter should be
+// called before performing final state evaluation.
 func (k *Key) Filter(ignorePatterns []string) {
 
 	numIgnorePatterns := len(ignorePatterns)
@@ -1275,25 +1279,29 @@ func (k *Key) Filter(ignorePatterns []string) {
 		k,
 	)
 
-	for pathString, matchedPath := range k.runtime.pathsMatched {
-		logger.Printf("Searching matched path %q for ignore pattern matches", pathString)
+	for originalPathString, matchedPath := range k.runtime.pathsMatched {
+		logger.Printf("Searching matched path %q for ignore pattern matches", originalPathString)
+
+		normalizedPathString := textutils.NormalizePath(originalPathString)
+		logger.Printf("Normalizing matched path %q as %q", originalPathString, normalizedPathString)
 
 		for _, ignorePattern := range ignorePatterns {
-			logger.Printf("case-insensitively performing substring match for %q", ignorePattern)
 
-			if strings.Contains(strings.ToLower(pathString), strings.ToLower(ignorePattern)) {
-				logger.Printf("matchedPath %q contains ignorePattern %q", pathString, ignorePattern)
-				logger.Printf("marking matched path %q as ignored", pathString)
+			normalizedIgnorePattern := textutils.NormalizePath(ignorePattern)
+			logger.Printf("Normalizing ignore pattern %q as %q", ignorePattern, normalizedIgnorePattern)
+
+			if strings.Contains(normalizedPathString, normalizedIgnorePattern) {
+				logger.Printf("matchedPath %q contains ignorePattern %q", originalPathString, ignorePattern)
+				logger.Printf("marking matched path %q as ignored", originalPathString)
 
 				matchedPath.ignored = true
-				k.runtime.pathsMatched[pathString] = matchedPath
+				k.runtime.pathsMatched[originalPathString] = matchedPath
 				numIgnorePatternsApplied++
 			}
 		}
 	}
 
 	logger.Printf("%d ignore patterns applied for %q", numIgnorePatternsApplied, k)
-
 }
 
 // HasEvidence indicates whether any evidence was found for an assertion

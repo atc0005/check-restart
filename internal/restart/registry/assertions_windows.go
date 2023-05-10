@@ -17,9 +17,13 @@ import (
 
 // DefaultRebootRequiredIgnoredPaths provides the default collection of paths
 // for registry related reboot required assertions that should be ignored.
+//
+// Paths are normalized before comparison with matched paths.
+//
+// For consistency, these entries should match the default path syntax for the
+// operating system in question.
 func DefaultRebootRequiredIgnoredPaths() []string {
 	return []string{
-		// TODO: Should this be normalized?
 		`SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending\117cab2d-82b1-4b5a-a08c-4d62dbee7782`,
 	}
 }
@@ -54,6 +58,9 @@ func DefaultRebootRequiredAssertions() restart.RebootRequiredAsserters {
 				path:  `SYSTEM\CurrentControlSet\Control\Session Manager`,
 				value: "PendingFileRenameOperations",
 				evidenceExpected: KeyRebootEvidence{
+					// FIXME: Based on recent experience, this is a VERY noisy
+					// evidence marker. Just having the value present has not
+					// proven sufficient to indicate the need for a reboot.
 					ValueExists: true,
 				},
 			},
