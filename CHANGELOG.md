@@ -26,6 +26,40 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.5.0] - 2023-05-11
+
+### Overview
+
+- Build improvements
+- Bug fixes
+- Dependency updates
+- built using Go 1.19.9
+  - Statically linked
+  - Windows (x64)
+
+### Added
+
+- (GH-132) Add rootless container builds via Docker/Podman
+
+### Changed
+
+- Dependencies
+  - `Go`
+    - `1.19.7` to `1.19.9`
+  - `atc0005/go-ci` build image
+    - `go-ci-oldstable-build-v0.9.2` to `go-ci-oldstable-build-v0.10.5`
+  - `rs/zerolog`
+    - `v1.29.0` to `v1.29.1`
+  - `golang.org/x/sys`
+    - `v0.6.0` to `v0.8.0`
+  - `mattn/go-isatty`
+    - `v0.0.17` to `v0.0.18`
+
+### Fixed
+
+- (GH-125) Update vuln analysis GHAW to use on.push hook
+- (GH-141) Fix revive linting error
+
 ## [v0.4.0] - 2023-03-17
 
 ### Overview
@@ -262,7 +296,8 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/atc0005/check-restart/releases/tag/v0.5.0
 [v0.4.0]: https://github.com/atc0005/check-restart/releases/tag/v0.4.0
 [v0.3.0]: https://github.com/atc0005/check-restart/releases/tag/v0.3.0
 [v0.2.3]: https://github.com/atc0005/check-restart/releases/tag/v0.2.3
