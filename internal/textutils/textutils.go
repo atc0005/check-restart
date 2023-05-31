@@ -7,7 +7,10 @@
 
 package textutils
 
-import "strings"
+import (
+	"path/filepath"
+	"strings"
+)
 
 // InList is a helper function to emulate Python's `if "x" in list:`
 // functionality. The caller can optionally ignore case of compared items.
@@ -28,4 +31,10 @@ func InList(needle string, haystack []string, ignoreCase bool) bool {
 		}
 	}
 	return false
+}
+
+// NormalizePath normalizes a given path string by folding character case and
+// converting path separators.
+func NormalizePath(path string) string {
+	return filepath.ToSlash(strings.ToLower(path))
 }
