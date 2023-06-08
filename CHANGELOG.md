@@ -26,6 +26,35 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.5.1] - 2023-06-08
+
+### Overview
+
+- Bug fixes
+- Pattern/Path match improvements & workarounds
+- Dependency updates
+- built using Go 1.19.10
+  - Statically linked
+  - Windows (x64)
+
+### Changed
+
+- Dependencies
+  - `Go`
+    - `1.19.9` to `1.19.10`
+  - `atc0005/go-nagios`
+    - `v0.14.0` to `v0.15.0`
+  - `atc0005/go-ci` build image
+    - `go-ci-oldstable-build-v0.10.5` to `go-ci-oldstable-build-v0.10.6`
+  - `mattn/go-isatty`
+    - `v0.0.18` to `v0.0.19`
+- (GH-146) Normalize matched/ignored paths
+- (GH-151) Temporarily disable problematic assertions
+
+### Fixed
+
+- (GH-148) Disable depguard linter
+
 ## [v0.5.0] - 2023-05-11
 
 ### Overview
@@ -296,7 +325,8 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.5.1...HEAD
+[v0.5.1]: https://github.com/atc0005/check-restart/releases/tag/v0.5.1
 [v0.5.0]: https://github.com/atc0005/check-restart/releases/tag/v0.5.0
 [v0.4.0]: https://github.com/atc0005/check-restart/releases/tag/v0.4.0
 [v0.3.0]: https://github.com/atc0005/check-restart/releases/tag/v0.3.0
