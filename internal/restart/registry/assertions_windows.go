@@ -52,45 +52,55 @@ func DefaultRebootRequiredAssertions() restart.RebootRequiredAsserters {
 			},
 			expectedData: 0,
 		},
-		&KeyStrings{
-			Key: Key{
-				root:  registry.LOCAL_MACHINE,
-				path:  `SYSTEM\CurrentControlSet\Control\Session Manager`,
-				value: "PendingFileRenameOperations",
-				evidenceExpected: KeyRebootEvidence{
-					// FIXME: Based on recent experience, this is a VERY noisy
-					// evidence marker. Just having the value present has not
-					// proven sufficient to indicate the need for a reboot.
-					ValueExists: true,
+		/*
+
+			Disabling use of these assertions until fine-grained control is
+			available to exclude known problematic entries.
+
+			See also:
+
+			- https://github.com/atc0005/check-restart/issues/133
+
+			&KeyStrings{
+				Key: Key{
+					root:  registry.LOCAL_MACHINE,
+					path:  `SYSTEM\CurrentControlSet\Control\Session Manager`,
+					value: "PendingFileRenameOperations",
+					evidenceExpected: KeyRebootEvidence{
+						// FIXME: Based on recent experience, this is a VERY noisy
+						// evidence marker. Just having the value present has not
+						// proven sufficient to indicate the need for a reboot.
+						ValueExists: true,
+					},
+				},
+
+				// TODO: this is the default and not really needed. Adding this
+				// just for the time being as a reminder that the support is
+				// available.
+				additionalEvidence: KeyStringsRebootEvidence{
+					ValueFound:     false,
+					AllValuesFound: false,
 				},
 			},
+			&KeyStrings{
+				Key: Key{
+					root:  registry.LOCAL_MACHINE,
+					path:  `SYSTEM\CurrentControlSet\Control\Session Manager`,
+					value: "PendingFileRenameOperations2",
+					evidenceExpected: KeyRebootEvidence{
+						ValueExists: true,
+					},
+				},
 
-			// TODO: this is the default and not really needed. Adding this
-			// just for the time being as a reminder that the support is
-			// available.
-			additionalEvidence: KeyStringsRebootEvidence{
-				ValueFound:     false,
-				AllValuesFound: false,
-			},
-		},
-		&KeyStrings{
-			Key: Key{
-				root:  registry.LOCAL_MACHINE,
-				path:  `SYSTEM\CurrentControlSet\Control\Session Manager`,
-				value: "PendingFileRenameOperations2",
-				evidenceExpected: KeyRebootEvidence{
-					ValueExists: true,
+				// TODO: this is the default and not really needed. Adding this
+				// just for the time being as a reminder that the support is
+				// available.
+				additionalEvidence: KeyStringsRebootEvidence{
+					ValueFound:     false,
+					AllValuesFound: false,
 				},
 			},
-
-			// TODO: this is the default and not really needed. Adding this
-			// just for the time being as a reminder that the support is
-			// available.
-			additionalEvidence: KeyStringsRebootEvidence{
-				ValueFound:     false,
-				AllValuesFound: false,
-			},
-		},
+		*/
 		&Key{
 			root: registry.LOCAL_MACHINE,
 
