@@ -26,6 +26,37 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.5.2] - 2023-07-14
+
+### Overview
+
+- RPM package improvements
+- Bug fixes
+- Dependency updates
+- built using Go 1.19.11
+  - Statically linked
+  - Windows (x86, x64)
+  - Linux (x86, x64)
+
+### Changed
+
+- Dependencies
+  - `Go`
+    - `1.19.10` to `1.19.11`
+  - `atc0005/go-nagios`
+    - `v0.15.0` to `v0.16.0`
+  - `atc0005/go-ci`
+    - `go-ci-oldstable-build-v0.11.0` to `go-ci-oldstable-build-v0.11.4`
+  - `golang.org/x/sys`
+    - `v0.8.0` to `v0.10.0`
+- (GH-163) Update RPM postinstall scripts to use restorecon
+- (GH-154) Update vuln analysis GHAW to remove on.push hook
+
+### Fixed
+
+- (GH-156) Restore local CodeQL workflow
+- (GH-161) Correct logging format listed in README
+
 ## [v0.5.1] - 2023-06-08
 
 ### Overview
@@ -325,7 +356,8 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.5.2...HEAD
+[v0.5.2]: https://github.com/atc0005/check-restart/releases/tag/v0.5.2
 [v0.5.1]: https://github.com/atc0005/check-restart/releases/tag/v0.5.1
 [v0.5.0]: https://github.com/atc0005/check-restart/releases/tag/v0.5.0
 [v0.4.0]: https://github.com/atc0005/check-restart/releases/tag/v0.4.0
