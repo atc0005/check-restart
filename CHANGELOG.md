@@ -26,6 +26,27 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.5.3] - 2023-08-17
+
+### Added
+
+- (GH-168) Add initial automated release notes config
+- (GH-170) Add initial automated release build workflow
+
+### Changed
+
+- Dependencies
+  - `Go`
+    - `1.19.11` to `1.20.7`
+  - `atc0005/go-ci`
+    - `go-ci-oldstable-build-v0.11.4` to `go-ci-oldstable-build-v0.13.4`
+  - `rs/zerolog`
+    - `v1.29.1` to `v1.30.0`
+  - `golang.org/x/sys`
+    - `v0.10.0` to `v0.11.0`
+- (GH-172) Update Dependabot config to monitor both branches
+- (GH-192) Update project to Go 1.20 series
+
 ## [v0.5.2] - 2023-07-14
 
 ### Overview
@@ -356,7 +377,8 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.5.3...HEAD
+[v0.5.3]: https://github.com/atc0005/check-restart/releases/tag/v0.5.3
 [v0.5.2]: https://github.com/atc0005/check-restart/releases/tag/v0.5.2
 [v0.5.1]: https://github.com/atc0005/check-restart/releases/tag/v0.5.1
 [v0.5.0]: https://github.com/atc0005/check-restart/releases/tag/v0.5.0
