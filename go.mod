@@ -6,7 +6,7 @@ require golang.org/x/sys v0.12.0
 
 require (
 	github.com/atc0005/go-nagios v0.16.0
-	github.com/rs/zerolog v1.30.0
+	github.com/rs/zerolog v1.31.0
 )
 
 require (
