@@ -60,13 +60,13 @@ func (c *Config) handleFlagsConfig(appType AppType) {
 
 		flag.BoolVar(&c.EmitBranding, BrandingFlag, defaultBranding, brandingFlagHelp)
 
-		flag.BoolVar(&c.VerboseOutput, VerboseFlagShort, defaultVerboseOutput, verboseOutputFlagHelp+" (shorthand)")
+		flag.BoolVar(&c.VerboseOutput, VerboseFlagShort, defaultVerboseOutput, verboseOutputFlagHelp+shorthandFlagSuffix)
 		flag.BoolVar(&c.VerboseOutput, VerboseFlagLong, defaultVerboseOutput, verboseOutputFlagHelp)
 
-		flag.BoolVar(&c.ShowIgnored, ShowIgnoredFlagShort, defaultShowIgnored, showIgnoredFlagHelp+" (shorthand)")
+		flag.BoolVar(&c.ShowIgnored, ShowIgnoredFlagShort, defaultShowIgnored, showIgnoredFlagHelp+shorthandFlagSuffix)
 		flag.BoolVar(&c.ShowIgnored, ShowIgnoredFlagLong, defaultShowIgnored, showIgnoredFlagHelp)
 
-		flag.BoolVar(&c.DisableDefaultIgnored, DisableDefaultIgnoredFlagShort, defaultDisableDefaultIgnored, disableDefaultIgnoredFlagHelp+" (shorthand)")
+		flag.BoolVar(&c.DisableDefaultIgnored, DisableDefaultIgnoredFlagShort, defaultDisableDefaultIgnored, disableDefaultIgnoredFlagHelp+shorthandFlagSuffix)
 		flag.BoolVar(&c.DisableDefaultIgnored, DisableDefaultIgnoredFlagLong, defaultDisableDefaultIgnored, disableDefaultIgnoredFlagHelp)
 
 	case appType.Inspector:
@@ -96,7 +96,7 @@ func (c *Config) handleFlagsConfig(appType AppType) {
 
 		appDescription = "Used to generate a summary of metadata indicating the need to reboot a system or services."
 
-		flag.BoolVar(&c.VerboseOutput, VerboseFlagShort, defaultVerboseOutput, verboseOutputFlagHelp+" (shorthand)")
+		flag.BoolVar(&c.VerboseOutput, VerboseFlagShort, defaultVerboseOutput, verboseOutputFlagHelp+shorthandFlagSuffix)
 		flag.BoolVar(&c.VerboseOutput, VerboseFlagLong, defaultVerboseOutput, verboseOutputFlagHelp)
 
 	}
@@ -107,7 +107,7 @@ func (c *Config) handleFlagsConfig(appType AppType) {
 		&c.LoggingLevel,
 		LogLevelFlagShort,
 		defaultLogLevel,
-		supportedValuesFlagHelpText(logLevelFlagHelp, supportedLogLevels())+" (shorthand)",
+		supportedValuesFlagHelpText(logLevelFlagHelp, supportedLogLevels())+shorthandFlagSuffix,
 	)
 	flag.StringVar(
 		&c.LoggingLevel,
