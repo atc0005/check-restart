@@ -26,6 +26,24 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.5.5] - 2023-11-15
+
+### Changed
+
+#### Dependency Updates
+
+- (GH-240) canary: bump golang from 1.20.8 to 1.20.11 in /dependabot/docker/go
+- (GH-242) docker: bump atc0005/go-ci from go-ci-oldstable-build-v0.13.12 to go-ci-oldstable-build-v0.14.1 in /dependabot/docker/builds
+- (GH-233) docker: bump atc0005/go-ci from go-ci-oldstable-build-v0.13.9 to go-ci-oldstable-build-v0.13.12 in /dependabot/docker/builds
+- (GH-235) go.mod: bump github.com/mattn/go-isatty from 0.0.19 to 0.0.20
+- (GH-220) go.mod: bump github.com/rs/zerolog from 1.30.0 to 1.31.0
+- (GH-222) go.mod: bump golang.org/x/sys from 0.12.0 to 0.13.0
+- (GH-238) go.mod: bump golang.org/x/sys from 0.13.0 to 0.14.0
+
+### Fixed
+
+- (GH-245) Fix goconst linting errors
+
 ## [v0.5.4] - 2023-10-06
 
 ### Changed
