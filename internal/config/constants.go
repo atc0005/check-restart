@@ -24,6 +24,10 @@ const (
 	disableDefaultIgnoredFlagHelp string = "Disables use of default ignored assertion path entries."
 )
 
+// shorthandFlagSuffix is appended to short flag help text to emphasize that
+// the flag is a shorthand version of a longer flag.
+const shorthandFlagSuffix = " (shorthand)"
+
 // Flag names for consistent references. Exported so that they're available
 // from tests.
 const (
