@@ -71,34 +71,34 @@ func CheckRebootOneLineSummary(assertions restart.RebootRequiredAsserters, evalI
 //nolint:all
 //lint:ignore U1000 disabling use per GH-119, but may re-enable later via flag
 func writeReportHeader(w io.Writer, assertions restart.RebootRequiredAsserters, verbose bool) {
-	fmt.Fprintf(
+	_, _ = fmt.Fprintf(
 		w,
 		"%[1]sSummary:%[1]s%[1]s",
 		nagios.CheckOutputEOL,
 	)
 
-	fmt.Fprintf(
+	_, _ = fmt.Fprintf(
 		w,
 		"  - %d total reboot assertions applied%s",
 		assertions.NumApplied(),
 		nagios.CheckOutputEOL,
 	)
 
-	fmt.Fprintf(
+	_, _ = fmt.Fprintf(
 		w,
 		"  - %d total reboot assertions matched%s",
 		assertions.NumMatched(),
 		nagios.CheckOutputEOL,
 	)
 
-	fmt.Fprintf(
+	_, _ = fmt.Fprintf(
 		w,
 		"  - %d total reboot assertions ignored%s",
 		assertions.NumIgnored(),
 		nagios.CheckOutputEOL,
 	)
 
-	fmt.Fprintf(
+	_, _ = fmt.Fprintf(
 		w,
 		"%[1]s%[2]s%[1]s%[1]s",
 		nagios.CheckOutputEOL,
@@ -125,7 +125,7 @@ func writeAssertions(w io.Writer, assertions restart.RebootRequiredAsserters, ve
 		// While there is *usually* one reason for a reboot, the current
 		// design allows for multiple reasons.
 		for _, reason := range assertion.RebootReasons() {
-			fmt.Fprintf(w, topDetailTemplateStr, reason, nagios.CheckOutputEOL)
+			_, _ = fmt.Fprintf(w, topDetailTemplateStr, reason, nagios.CheckOutputEOL)
 
 			// We are processing types beneath RebootReasons so that we can
 			// emit more detailed information following a "standard" reboot
@@ -137,7 +137,7 @@ func writeAssertions(w io.Writer, assertions restart.RebootRequiredAsserters, ve
 		}
 	}
 
-	fmt.Fprint(w, nagios.CheckOutputEOL)
+	_, _ = fmt.Fprint(w, nagios.CheckOutputEOL)
 }
 
 // CheckRebootReport returns a formatted report of the evaluation results
@@ -156,7 +156,7 @@ func CheckRebootReport(assertions restart.RebootRequiredAsserters, showIgnored b
 
 		// writeMatchedPaths(&report, assertions, verbose)
 
-		fmt.Fprintf(
+		_, _ = fmt.Fprintf(
 			&report,
 			"Reboot required because:%[1]s",
 			nagios.CheckOutputEOL,
@@ -169,12 +169,12 @@ func CheckRebootReport(assertions restart.RebootRequiredAsserters, showIgnored b
 		writeAssertions(&report, notIgnoredAssertions, verbose)
 
 	case assertions.IsOKState():
-		fmt.Fprintf(&report, "Reboot not required%s", nagios.CheckOutputEOL)
+		_, _ = fmt.Fprintf(&report, "Reboot not required%s", nagios.CheckOutputEOL)
 
 	}
 
 	if assertions.HasIgnored() && showIgnored {
-		fmt.Fprintf(
+		_, _ = fmt.Fprintf(
 			&report,
 			"%[1]sAssertions ignored:%[1]s",
 			nagios.CheckOutputEOL,
@@ -206,7 +206,7 @@ func appendAdditionalContext(
 			logger.Printf("%q has subpath evidence", assertion.String())
 
 			for _, path := range v.MatchedPaths() {
-				fmt.Fprintf(
+				_, _ = fmt.Fprintf(
 					w,
 					subDetailTemplateStr,
 					"subpath: "+path.Base(),
@@ -225,7 +225,7 @@ func appendAdditionalContext(
 	case restart.RebootRequiredAsserterWithDataDisplay:
 		logger.Printf("Type assertion worked, value available for check result")
 
-		fmt.Fprintf(
+		_, _ = fmt.Fprintf(
 			w,
 			subDetailTemplateStr,
 			v.DataDisplay(),
