@@ -141,10 +141,10 @@ func (c *Config) handleFlagsConfig(appType AppType) {
 		// with the `--help` flag and have it display within the Admin web UI.
 		flag.CommandLine.SetOutput(os.Stdout)
 
-		fmt.Fprintln(flag.CommandLine.Output(), headerText)
+		_, _ = fmt.Fprintln(flag.CommandLine.Output(), headerText)
 		flag.PrintDefaults()
-		fmt.Fprintln(flag.CommandLine.Output(), positionalArgRequirements)
-		fmt.Fprintln(flag.CommandLine.Output(), footerText)
+		_, _ = fmt.Fprintln(flag.CommandLine.Output(), positionalArgRequirements)
+		_, _ = fmt.Fprintln(flag.CommandLine.Output(), footerText)
 	}
 
 	// parse flag definitions from the argument list
