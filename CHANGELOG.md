@@ -26,6 +26,24 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.5.11] - 2024-06-07
+
+### Changed
+
+#### Dependency Updates
+
+- (GH-343) Build Image: Bump atc0005/go-ci from go-ci-oldstable-build-v0.20.4 to go-ci-oldstable-build-v0.20.5 in /dependabot/docker/builds
+- (GH-346) Build Image: Bump atc0005/go-ci from go-ci-oldstable-build-v0.20.5 to go-ci-oldstable-build-v0.20.6 in /dependabot/docker/builds
+- (GH-356) Build Image: Bump atc0005/go-ci from go-ci-oldstable-build-v0.20.6 to go-ci-oldstable-build-v0.20.7 in /dependabot/docker/builds
+- (GH-344) Go Dependency: Bump github.com/rs/zerolog from 1.32.0 to 1.33.0
+- (GH-354) Go Dependency: Bump golang.org/x/sys from 0.20.0 to 0.21.0
+- (GH-352) Go Runtime: Bump golang from 1.21.10 to 1.21.11 in /dependabot/docker/go
+
+### Fixed
+
+- (GH-348) Remove inactive maligned linter
+- (GH-349) Fix errcheck linting errors
+
 ## [v0.5.10] - 2024-05-13
 
 ### Changed
@@ -483,7 +501,8 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.5.10...HEAD
+[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.5.11...HEAD
+[v0.5.11]: https://github.com/atc0005/check-restart/releases/tag/v0.5.11
 [v0.5.10]: https://github.com/atc0005/check-restart/releases/tag/v0.5.10
 [v0.5.9]: https://github.com/atc0005/check-restart/releases/tag/v0.5.9
 [v0.5.8]: https://github.com/atc0005/check-restart/releases/tag/v0.5.8
