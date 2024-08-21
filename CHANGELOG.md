@@ -26,6 +26,26 @@ The following types of changes will be recorded in this file:
 
 - placeholder
 
+## [v0.5.13] - 2024-08-21
+
+### Changed
+
+#### Dependency Updates
+
+- (GH-379) Build Image: Bump atc0005/go-ci from go-ci-oldstable-build-v0.21.4 to go-ci-oldstable-build-v0.21.5 in /dependabot/docker/builds
+- (GH-382) Build Image: Bump atc0005/go-ci from go-ci-oldstable-build-v0.21.5 to go-ci-oldstable-build-v0.21.6 in /dependabot/docker/builds
+- (GH-385) Build Image: Bump atc0005/go-ci from go-ci-oldstable-build-v0.21.6 to go-ci-oldstable-build-v0.21.7 in /dependabot/docker/builds
+- (GH-392) Build Image: Bump atc0005/go-ci from go-ci-oldstable-build-v0.21.7 to go-ci-oldstable-build-v0.21.8 in /dependabot/docker/builds
+- (GH-399) Build Image: Bump atc0005/go-ci from go-ci-oldstable-build-v0.21.8 to go-ci-oldstable-build-v0.21.9 in /dependabot/docker/builds
+- (GH-390) Go Dependency: Bump golang.org/x/sys from 0.22.0 to 0.23.0
+- (GH-395) Go Dependency: Bump golang.org/x/sys from 0.23.0 to 0.24.0
+- (GH-402) Go Runtime: Bump golang from 1.21.12 to 1.22.6 in /dependabot/docker/go
+- (GH-401) Update project to Go 1.22 series
+
+#### Other
+
+- (GH-387) Push `REPO_VERSION` var into containers for builds
+
 ## [v0.5.12] - 2024-07-10
 
 ### Changed
@@ -514,7 +534,8 @@ This release provides an early release version of a Nagios plugin used to
 monitor for "reboot needed" status of Windows systems. Tested on multiple
 Windows desktop and server variants.
 
-[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.5.12...HEAD
+[Unreleased]: https://github.com/atc0005/check-restart/compare/v0.5.13...HEAD
+[v0.5.13]: https://github.com/atc0005/check-restart/releases/tag/v0.5.13
 [v0.5.12]: https://github.com/atc0005/check-restart/releases/tag/v0.5.12
 [v0.5.11]: https://github.com/atc0005/check-restart/releases/tag/v0.5.11
 [v0.5.10]: https://github.com/atc0005/check-restart/releases/tag/v0.5.10
