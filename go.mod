@@ -5,7 +5,7 @@ go 1.20
 require golang.org/x/sys v0.25.0
 
 require (
-	github.com/atc0005/go-nagios v0.16.1
+	github.com/atc0005/go-nagios v0.17.0
 	github.com/rs/zerolog v1.33.0
 )
 
