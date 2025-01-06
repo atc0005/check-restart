@@ -2,7 +2,7 @@ module github.com/atc0005/check-restart
 
 go 1.20
 
-require golang.org/x/sys v0.27.0
+require golang.org/x/sys v0.29.0
 
 require (
 	github.com/atc0005/go-nagios v0.19.0
