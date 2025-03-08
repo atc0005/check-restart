@@ -1,6 +1,6 @@
 module github.com/atc0005/check-restart
 
-go 1.19
+go 1.23.0
 
 require golang.org/x/sys v0.27.0
 
